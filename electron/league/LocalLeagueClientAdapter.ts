@@ -1,6 +1,6 @@
+import { spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
-import { shell } from 'electron';
 import type { LeagueClientAdapter } from './LeagueClientAdapter.js';
 import { parseLeagueGameResult } from './gameResult.js';
 import { parseLeagueIdentity } from './leagueIdentity.js';
@@ -491,10 +491,29 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
   }
 
   async openLeague(): Promise<{ opened: boolean; reason?: string }> {
-    const executable = await this.findExecutable();
-    if (!executable) return { opened: false, reason: 'LeagueClient.exe was not found.' };
-    const error = await shell.openPath(executable);
-    return error ? { opened: false, reason: error } : { opened: true };
+    const leagueExecutable = await this.findExecutable();
+    if (!leagueExecutable) return { opened: false, reason: 'LeagueClient.exe was not found.' };
+    const riotClient = await this.findRiotClientExecutable(leagueExecutable);
+    if (!riotClient) {
+      return { opened: false, reason: 'RiotClientServices.exe was not found next to League.' };
+    }
+    return new Promise((resolve) => {
+      const process = spawn(
+        riotClient,
+        ['--launch-product=league_of_legends', '--launch-patchline=live'],
+        {
+          cwd: path.dirname(riotClient),
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        },
+      );
+      process.once('error', (error) => resolve({ opened: false, reason: error.message }));
+      process.once('spawn', () => {
+        process.unref();
+        resolve({ opened: true });
+      });
+    });
   }
 
   private async verifiedClient(): Promise<LcuHttpClient> {
@@ -583,6 +602,29 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
         return path.resolve(candidate);
       } catch {
         // Try the next explicit or discovered location.
+      }
+    }
+    return null;
+  }
+
+  private async findRiotClientExecutable(leagueExecutable: string): Promise<string | null> {
+    const leagueRoot = path.dirname(path.dirname(leagueExecutable));
+    const candidates = [
+      process.env.W3C_RIOT_CLIENT_PATH,
+      path.join(leagueRoot, 'Riot Client', 'RiotClientServices.exe'),
+      path.join(process.env.SystemDrive ?? 'C:', 'Riot Games', 'Riot Client', 'RiotClientServices.exe'),
+      process.env.ProgramFiles
+        ? path.join(process.env.ProgramFiles, 'Riot Games', 'Riot Client', 'RiotClientServices.exe')
+        : undefined,
+    ].filter((candidate): candidate is string => Boolean(candidate));
+
+    for (const candidate of candidates) {
+      if (path.basename(candidate).toLowerCase() !== 'riotclientservices.exe') continue;
+      try {
+        await access(candidate);
+        return path.resolve(candidate);
+      } catch {
+        // Try the next explicit or League-relative Riot Client location.
       }
     }
     return null;

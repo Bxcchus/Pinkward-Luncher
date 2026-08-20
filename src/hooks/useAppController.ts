@@ -88,6 +88,7 @@ export function useAppController(): AppController {
   const reportedGameResultsRef = useRef(new Set<string>());
   const duelOperationsRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
+  const leagueWasRunningRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     stateRef.current = state;
@@ -118,6 +119,21 @@ export function useAppController(): AppController {
         if (status.gameId) activeGameIdRef.current = status.gameId;
 
         const current = stateRef.current;
+        const leagueWasRunning = leagueWasRunningRef.current;
+        leagueWasRunningRef.current = status.running;
+        if (
+          current.player &&
+          !current.settings.demoMode &&
+          leagueWasRunning === true &&
+          !status.running
+        ) {
+          dispatch({ type: 'SHOW_TOAST', message: 'League Client closed — reopen it to continue' });
+          desktopNotification(
+            'League Client closed',
+            'Reopen League and sign in to continue using W3C-LoL.',
+            current.settings.desktopNotifications,
+          );
+        }
         const matchId = current.currentMatchId;
         if ((current.localBotMatch || current.duelMatch) && current.player && matchId) {
           if (status.state === 'CHAMP_SELECT' || status.state === 'IN_GAME') {

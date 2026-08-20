@@ -15,23 +15,42 @@ export function LoginScreen({ controller }: { controller: AppController }) {
 
   useEffect(() => {
     let active = true;
-    if (!window.w3c) return undefined;
-    void window.w3c.league.getIdentity()
-      .then((identity) => {
-        if (!active || !identity) return;
+    let requestInFlight = false;
+    if (!window.w3c) {
+      return undefined;
+    }
+    const detectIdentity = async () => {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      try {
+        const identity = await window.w3c?.league.getIdentity();
+        if (!active) return;
+        if (!identity) {
+          setGameName('');
+          setTagLine('');
+          setIdentityDetected(false);
+          return;
+        }
         setGameName(identity.gameName);
         setTagLine(identity.tagLine);
         if (['EUW', 'EUNE', 'NA'].includes(identity.region)) setRegion(identity.region);
         setIdentityDetected(true);
-      })
-      .catch(() => undefined)
-      .finally(() => {
+      } catch {
+        if (active) setIdentityDetected(false);
+      } finally {
+        requestInFlight = false;
         if (active) setDetectingIdentity(false);
-      });
+      }
+    };
+    void detectIdentity();
+    const interval = window.setInterval(() => void detectIdentity(), 2_500);
     return () => {
       active = false;
+      window.clearInterval(interval);
     };
   }, []);
+
+  const automaticIdentity = !state.settings.demoMode;
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -74,7 +93,9 @@ export function LoginScreen({ controller }: { controller: AppController }) {
               ? 'Reading the active League session…'
               : identityDetected
                 ? 'Riot ID detected from your active League session.'
-                : 'Use the Riot ID shown in your League profile.'}</p>
+                : automaticIdentity
+                  ? 'League is closed or no signed-in player was detected.'
+                  : 'Choose an identity for the local simulation.'}</p>
           </header>
           <label className="field-label" htmlFor="game-name">RIOT ID</label>
           <div className="riot-id-fields">
@@ -82,8 +103,9 @@ export function LoginScreen({ controller }: { controller: AppController }) {
               id="game-name"
               value={gameName}
               onChange={(event) => setGameName(event.target.value)}
-              placeholder="Game name"
+              placeholder={automaticIdentity ? 'Waiting for League…' : 'Game name'}
               autoComplete="nickname"
+              disabled={automaticIdentity}
             />
             <span>#</span>
             <input
@@ -92,11 +114,23 @@ export function LoginScreen({ controller }: { controller: AppController }) {
               onChange={(event) => setTagLine(event.target.value)}
               placeholder="EUW"
               maxLength={8}
+              disabled={automaticIdentity}
             />
           </div>
-          {identityDetected && <div className="identity-detected"><Icon name="check" size={14} /> Identity detected locally</div>}
+          {identityDetected
+            ? <div className="identity-detected"><Icon name="check" size={14} /> Identity detected locally</div>
+            : automaticIdentity && !detectingIdentity && (
+              <div className="identity-detected identity-detected--unavailable">
+                <Icon name="league" size={14} /> Open League and sign in to continue
+              </div>
+            )}
           <label className="field-label" htmlFor="region">REGION</label>
-          <select id="region" value={region} onChange={(event) => setRegion(event.target.value)}>
+          <select
+            id="region"
+            value={region}
+            onChange={(event) => setRegion(event.target.value)}
+            disabled={automaticIdentity}
+          >
             <option value="EUW">Europe West (EUW)</option>
             <option value="EUNE">Europe Nordic & East (EUNE)</option>
             <option value="NA">North America (NA)</option>
@@ -144,8 +178,18 @@ export function LoginScreen({ controller }: { controller: AppController }) {
 
           {state.error && <div className="form-error" role="alert">{state.error}</div>}
 
-          <button type="submit" className="button button--primary button--wide" disabled={submitting}>
-            <span>{submitting ? 'CONNECTING…' : state.settings.demoMode ? 'ENTER DEMO' : 'CONTINUE'}</span>
+          <button
+            type="submit"
+            className="button button--primary button--wide"
+            disabled={submitting || (automaticIdentity && !identityDetected)}
+          >
+            <span>{submitting
+              ? 'CONNECTING…'
+              : state.settings.demoMode
+                ? 'ENTER DEMO'
+                : identityDetected
+                  ? 'CONTINUE'
+                  : 'WAITING FOR LEAGUE'}</span>
             {!submitting && <Icon name="arrow" size={18} />}
           </button>
 

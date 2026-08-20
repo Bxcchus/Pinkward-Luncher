@@ -22,6 +22,7 @@ interface ShellProps {
 export function AppShell({ state, controller, children }: ShellProps) {
   const isInGame = state.lifecycle === 'IN_GAME';
   const locked = activeFlowScreens.has(state.screen);
+  const leagueDisconnected = !state.settings.demoMode && !state.league.running;
   const items: Array<{
     screen: 'HOME' | 'PLAY' | 'HISTORY' | 'SETTINGS';
     label: string;
@@ -100,6 +101,13 @@ export function AppShell({ state, controller, children }: ShellProps) {
             </button>
           </div>
         </header>
+        {leagueDisconnected && (
+          <div className="league-disconnected-banner" role="alert">
+            <Icon name="league" size={18} />
+            <span><strong>League Client is closed</strong> — reopen League and sign in to continue.</span>
+            <button type="button" onClick={() => void controller.openLeague()}>OPEN LEAGUE</button>
+          </div>
+        )}
         <main className="content">{children}</main>
       </section>
     </div>

@@ -11,7 +11,6 @@ export function LoginScreen({ controller }: { controller: AppController }) {
   const [submitting, setSubmitting] = useState(false);
   const [detectingIdentity, setDetectingIdentity] = useState(Boolean(window.w3c));
   const [identityDetected, setIdentityDetected] = useState(false);
-  const [accessCode, setAccessCode] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -55,7 +54,7 @@ export function LoginScreen({ controller }: { controller: AppController }) {
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
-    await controller.login(gameName, tagLine, region, accessCode);
+    await controller.login(gameName, tagLine, region);
     setSubmitting(false);
   };
 
@@ -158,23 +157,6 @@ export function LoginScreen({ controller }: { controller: AppController }) {
             spellCheck={false}
           />
           <small className="server-address-hint">Friends enter the host PC address, never localhost.</small>
-
-          {!state.settings.demoMode && (
-            <>
-              <label className="field-label" htmlFor="access-code">PAIRING CODE</label>
-              <input
-                id="access-code"
-                type="password"
-                value={accessCode}
-                onChange={(event) => setAccessCode(event.target.value)}
-                placeholder="Only required on the first connection"
-                autoComplete="one-time-code"
-              />
-              <small className="server-address-hint">
-                Leave blank when this PC has already been paired securely.
-              </small>
-            </>
-          )}
 
           {state.error && <div className="form-error" role="alert">{state.error}</div>}
 

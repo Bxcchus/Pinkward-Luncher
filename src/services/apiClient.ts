@@ -6,7 +6,6 @@ interface SecureLoginRequest {
   gameName: string;
   tagLine: string;
   region: string;
-  accessCode: string;
 }
 
 interface AuthResponse {

@@ -1,7 +1,7 @@
 import { access, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, type OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 import electronUpdater from 'electron-updater';
 import { LocalLeagueClientAdapter } from './league/LocalLeagueClientAdapter.js';
 import type { BotLobbyConfiguration, CustomLobbyConfiguration, LobbyCredentials } from './league/types.js';
@@ -13,10 +13,6 @@ interface LeagueLocationPreference {
   installationDirectory?: unknown;
 }
 
-interface AuthPreference {
-  encryptedAccessCode?: unknown;
-}
-
 interface UpdateConfiguration {
   enabled?: unknown;
   url?: unknown;
@@ -24,38 +20,6 @@ interface UpdateConfiguration {
 
 function leaguePreferenceFile(): string {
   return path.join(app.getPath('userData'), 'league-location.json');
-}
-
-function authPreferenceFile(): string {
-  return path.join(app.getPath('userData'), 'auth-pairing.json');
-}
-
-async function loadAccessCode(): Promise<string | null> {
-  if (!safeStorage.isEncryptionAvailable()) return null;
-  try {
-    const raw = await readFile(authPreferenceFile(), 'utf8');
-    const preference = JSON.parse(raw) as AuthPreference;
-    if (typeof preference.encryptedAccessCode !== 'string') return null;
-    return safeStorage.decryptString(Buffer.from(preference.encryptedAccessCode, 'base64'));
-  } catch {
-    return null;
-  }
-}
-
-async function saveAccessCode(accessCode: string): Promise<void> {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('Windows secure storage is unavailable');
-  }
-  const normalized = accessCode.trim();
-  if (normalized.length < 24 || normalized.length > 256) {
-    throw new Error('Pairing code is invalid');
-  }
-  const encryptedAccessCode = safeStorage.encryptString(normalized).toString('base64');
-  await writeFile(
-    authPreferenceFile(),
-    JSON.stringify({ encryptedAccessCode }, null, 2),
-    { encoding: 'utf8', mode: 0o600 },
-  );
 }
 
 async function configureAutomaticUpdates(): Promise<void> {
@@ -144,8 +108,6 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
-  ipcMain.handle('auth:get-access-code', () => loadAccessCode());
-  ipcMain.handle('auth:save-access-code', (_event, accessCode: string) => saveAccessCode(accessCode));
   ipcMain.handle('league:get-installation-path', () => leagueAdapter.getInstallationDirectory());
   ipcMain.handle('league:select-installation-path', async () => {
     const focusedWindow = BrowserWindow.getFocusedWindow();

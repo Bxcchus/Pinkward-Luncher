@@ -19,10 +19,6 @@ declare global {
   interface Window {
     w3c?: {
       platform: string;
-      auth: {
-        getAccessCode(): Promise<string | null>;
-        saveAccessCode(accessCode: string): Promise<void>;
-      };
       league: {
         getInstallationPath(): Promise<string | null>;
         selectInstallationPath(): Promise<{ path: string | null; selected: boolean; error?: string }>;

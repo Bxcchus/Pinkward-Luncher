@@ -44,7 +44,7 @@ function desktopNotification(title: string, body: string, enabled: boolean): voi
 
 export interface AppController {
   state: AppState;
-  login(gameName: string, tagLine: string, region: string, accessCode?: string): Promise<void>;
+  login(gameName: string, tagLine: string, region: string): Promise<void>;
   logout(): void;
   navigate(screen: 'HOME' | 'PLAY' | 'HISTORY' | 'SETTINGS'): void;
   setPrimaryRole(role: Role): void;
@@ -932,7 +932,7 @@ export function useAppController(): AppController {
   }, [finishDemoGame, state.duelMatch, state.lifecycle, state.localBotMatch, state.settings.demoMode]);
 
   const login = useCallback(
-    async (gameName: string, tagLine: string, region: string, accessCode = '') => {
+    async (gameName: string, tagLine: string, region: string) => {
       dispatch({ type: 'SET_ERROR', message: null });
       if (!stateRef.current.settings.demoMode) {
         try {
@@ -976,25 +976,13 @@ export function useAppController(): AppController {
             });
             return;
           }
-          const suppliedCode = accessCode.trim();
-          const storedCode = suppliedCode ? null : await window.w3c.auth.getAccessCode();
-          const pairingCode = suppliedCode || storedCode;
-          if (!pairingCode) {
-            dispatch({
-              type: 'SET_ERROR',
-              message: 'Enter the pairing code provided by the server owner.',
-            });
-            return;
-          }
           dispatch({ type: 'SET_SERVER_STATUS', status: 'CONNECTING' });
           player = await api.login({
             riotPuuid: leagueIdentity.riotPuuid,
             gameName: leagueIdentity.gameName,
             tagLine: leagueIdentity.tagLine,
             region: leagueIdentity.region,
-            accessCode: pairingCode,
           });
-          if (suppliedCode) await window.w3c.auth.saveAccessCode(suppliedCode);
           dispatch({ type: 'SET_SERVER_STATUS', status: 'CONNECTED' });
         }
         dispatch({ type: 'LOGIN_SUCCESS', player });
@@ -1003,7 +991,7 @@ export function useAppController(): AppController {
         dispatch({
           type: 'SET_ERROR',
           message: error instanceof ApiError && error.status === 401
-            ? 'The pairing code is invalid or already belongs to another League account.'
+            ? 'The League identity was rejected by the server.'
             : 'Unable to reach the W3C-LoL server. Enable demo mode to explore the full flow.',
         });
       }

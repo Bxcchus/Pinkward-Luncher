@@ -40,10 +40,6 @@ const leagueBridge = {
 };
 
 contextBridge.exposeInMainWorld('w3c', {
-  auth: {
-    getAccessCode: () => ipcRenderer.invoke('auth:get-access-code'),
-    saveAccessCode: (accessCode: string) => ipcRenderer.invoke('auth:save-access-code', accessCode),
-  },
   league: leagueBridge,
   platform: process.platform,
 });

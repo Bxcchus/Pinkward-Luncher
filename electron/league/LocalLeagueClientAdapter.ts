@@ -11,6 +11,7 @@ import {
   LcuHttpError,
   runningInstallationDirectory,
 } from './LcuHttpClient.js';
+import { RiotClientHttpClient, RiotClientHttpError } from './RiotClientHttpClient.js';
 import type {
   AdapterCommandResult,
   BotFillRole,
@@ -491,29 +492,99 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
   }
 
   async openLeague(): Promise<{ opened: boolean; reason?: string }> {
+    if (await runningInstallationDirectory()) return { opened: true };
+
     const leagueExecutable = await this.findExecutable();
     if (!leagueExecutable) return { opened: false, reason: 'LeagueClient.exe was not found.' };
     const riotClient = await this.findRiotClientExecutable(leagueExecutable);
     if (!riotClient) {
       return { opened: false, reason: 'RiotClientServices.exe was not found next to League.' };
     }
-    return new Promise((resolve) => {
-      const process = spawn(
-        riotClient,
-        ['--launch-product=league_of_legends', '--launch-patchline=live'],
-        {
-          cwd: path.dirname(riotClient),
-          detached: true,
-          stdio: 'ignore',
-          windowsHide: false,
-        },
-      );
-      process.once('error', (error) => resolve({ opened: false, reason: error.message }));
-      process.once('spawn', () => {
-        process.unref();
-        resolve({ opened: true });
+
+    try {
+      await this.launchThroughRiotClientApi();
+    } catch (error) {
+      if (!this.isRiotClientUnavailable(error)) {
+        return { opened: false, reason: this.riotLaunchFailureReason(error) };
+      }
+
+      const spawned = await new Promise<{ opened: boolean; reason?: string }>((resolve) => {
+        const process = spawn(
+          riotClient,
+          ['--launch-product=league_of_legends', '--launch-patchline=live'],
+          {
+            cwd: path.dirname(riotClient),
+            detached: true,
+            stdio: 'ignore',
+            windowsHide: false,
+          },
+        );
+        process.once('error', (error) => resolve({ opened: false, reason: error.message }));
+        process.once('spawn', () => {
+          process.unref();
+          resolve({ opened: true });
+        });
       });
-    });
+      if (!spawned.opened) return spawned;
+
+      let apiReady = false;
+      for (let attempt = 0; attempt < 60; attempt += 1) {
+        if (await runningInstallationDirectory()) return { opened: true };
+        try {
+          await this.launchThroughRiotClientApi();
+          apiReady = true;
+          break;
+        } catch (apiError) {
+          if (
+            apiError instanceof RiotClientHttpError &&
+            (apiError.diagnosticCode === 'RIOT_CLIENT_CONNECTION_FAILED' ||
+              apiError.diagnosticCode === 'RIOT_CLIENT_LOCKFILE_NOT_FOUND')
+          ) {
+            await delay(500);
+            continue;
+          }
+          return { opened: false, reason: this.riotLaunchFailureReason(apiError) };
+        }
+      }
+      if (!apiReady) {
+        return { opened: false, reason: 'Riot Client opened but did not become ready.' };
+      }
+    }
+
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      if (await runningInstallationDirectory()) return { opened: true };
+      await delay(500);
+    }
+    return {
+      opened: false,
+      reason: 'Riot Client accepted the launch, but League did not start within 30 seconds.',
+    };
+  }
+
+  private async launchThroughRiotClientApi(): Promise<void> {
+    const client = await RiotClientHttpClient.connect();
+    if (!(await client.isLeagueLaunchEligible())) {
+      throw new RiotClientHttpError(409, 'RIOT_CLIENT_LEAGUE_NOT_ELIGIBLE');
+    }
+    await client.launchLeague();
+  }
+
+  private riotLaunchFailureReason(error: unknown): string {
+    if (!(error instanceof RiotClientHttpError)) return 'League could not be launched.';
+    if (error.diagnosticCode === 'RIOT_CLIENT_LEAGUE_NOT_ELIGIBLE') {
+      return 'Sign in to Riot Client and finish any required update before opening League.';
+    }
+    if (error.statusCode === 401 || error.statusCode === 403) {
+      return 'Riot Client is not ready to launch League. Sign in, then try again.';
+    }
+    return `Riot Client could not launch League (${error.diagnosticCode}).`;
+  }
+
+  private isRiotClientUnavailable(error: unknown): boolean {
+    return error instanceof RiotClientHttpError && (
+      error.diagnosticCode === 'RIOT_CLIENT_CONNECTION_FAILED' ||
+      error.diagnosticCode === 'RIOT_CLIENT_LOCKFILE_NOT_FOUND'
+    );
   }
 
   private async verifiedClient(): Promise<LcuHttpClient> {
@@ -629,6 +700,10 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
     }
     return null;
   }
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function mapGameflowState(phase: string): LeagueClientState {

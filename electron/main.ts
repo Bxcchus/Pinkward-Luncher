@@ -148,6 +148,7 @@ function registerIpc(): void {
   ipcMain.handle('league:get-game-result', (_event, gameId: number) =>
     leagueAdapter.getGameResult(gameId),
   );
+  ipcMain.handle('league:get-duel-first-blood', () => leagueAdapter.getDuelFirstBlood());
   ipcMain.handle('league:create-custom-lobby', (_event, config: CustomLobbyConfiguration) =>
     leagueAdapter.createCustomLobby(config),
   );
@@ -160,6 +161,7 @@ function registerIpc(): void {
   ipcMain.handle('league:balance-duel-teams', () => leagueAdapter.balanceDuelTeams());
   ipcMain.handle('league:start-game', () => leagueAdapter.startGame());
   ipcMain.handle('league:start-duel-game', () => leagueAdapter.startDuelGame());
+  ipcMain.handle('league:exit-duel-game', () => leagueAdapter.exitDuelGame());
   ipcMain.handle('league:start-bot-game', () => leagueAdapter.startBotGame());
   ipcMain.handle('league:set-position-preferences', (_event, primaryRole, secondaryRole) =>
     leagueAdapter.setPositionPreferences(primaryRole, secondaryRole),

@@ -1,7 +1,9 @@
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import type { LeagueClientAdapter } from './LeagueClientAdapter.js';
+import { readDuelFirstBlood } from './LiveClientDataClient.js';
 import { parseLeagueGameResult } from './gameResult.js';
 import { parseLeagueIdentity } from './leagueIdentity.js';
 import { botPlanForRole, positionForRole } from './botRoster.js';
@@ -17,12 +19,15 @@ import type {
   BotFillRole,
   BotLobbyConfiguration,
   CustomLobbyConfiguration,
+  DuelFirstBloodSnapshot,
   LeagueGameResultSnapshot,
   LeagueIdentitySnapshot,
   LeagueClientState,
   LeagueStatusSnapshot,
   LobbyCredentials,
 } from './types.js';
+
+const execFileAsync = promisify(execFile);
 
 const CUSTOM_QUEUE_ID = 3100;
 const SUMMONERS_RIFT_MAP_ID = 11;
@@ -186,6 +191,14 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
             ? 'League installation detected; client is not running.'
             : `League LCU connection unavailable (${diagnostic}).`,
       };
+    }
+  }
+
+  async getDuelFirstBlood(): Promise<DuelFirstBloodSnapshot | null> {
+    try {
+      return await readDuelFirstBlood();
+    } catch {
+      return null;
     }
   }
 
@@ -464,6 +477,59 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
 
   async startDuelGame(): Promise<AdapterCommandResult> {
     return this.startValidatedGame('DUEL');
+  }
+
+  async exitDuelGame(): Promise<AdapterCommandResult> {
+    try {
+      const client = await LcuHttpClient.connect(this.installationDirectory);
+      const phase = await this.phase(client);
+      if (phase !== 'InProgress' && phase !== 'Reconnect') {
+        return commandResult('SUCCESS', 'LCU_DUEL_GAME_ALREADY_EXITED', mapGameflowState(phase), true);
+      }
+
+      try {
+        await client.post<unknown>('/lol-gameflow/v1/early-exit');
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          await delay(250);
+          const observedPhase = await this.phase(client);
+          if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
+            return commandResult(
+              'SUCCESS',
+              'LCU_DUEL_GAME_EXITED',
+              mapGameflowState(observedPhase),
+              true,
+            );
+          }
+        }
+      } catch {
+        // Some League builds expose early-exit but reject it for custom games.
+      }
+
+      if (process.platform !== 'win32') {
+        return commandResult('UNSUPPORTED', 'DUEL_GAME_EXIT_UNSUPPORTED', 'IN_GAME', false);
+      }
+      try {
+        await execFileAsync(
+          'taskkill.exe',
+          ['/IM', 'League of Legends.exe', '/T', '/F'],
+          { windowsHide: true, timeout: 5_000, maxBuffer: 64 * 1024 },
+        );
+        return commandResult('SUCCESS', 'DUEL_GAME_PROCESS_EXITED', 'CONNECTED', true);
+      } catch {
+        const observedPhase = await this.phase(client).catch(() => 'None');
+        if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
+          return commandResult(
+            'SUCCESS',
+            'DUEL_GAME_PROCESS_ALREADY_EXITED',
+            mapGameflowState(observedPhase),
+            true,
+          );
+        }
+        return commandResult('FAILED', 'DUEL_GAME_PROCESS_EXIT_FAILED', 'IN_GAME', true);
+      }
+    } catch (error) {
+      return this.failedCommand(error, 'DUEL_GAME_EXIT_FAILED');
+    }
   }
 
   async startBotGame(): Promise<AdapterCommandResult> {

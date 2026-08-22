@@ -1,5 +1,6 @@
 import type {
   LeagueClientState,
+  LeagueDuelFirstBlood,
   LeagueGameResult,
   LeagueIdentity,
   LeagueStatus,
@@ -30,6 +31,7 @@ declare global {
         getStatus(): Promise<LeagueStatus>;
         getIdentity(): Promise<LeagueIdentity | null>;
         getGameResult(gameId: number): Promise<LeagueGameResult | null>;
+        getDuelFirstBlood(): Promise<LeagueDuelFirstBlood | null>;
         createCustomLobby(configuration: LobbyCredentials & {
           region: string;
           map?: string;
@@ -46,6 +48,7 @@ declare global {
         balanceDuelTeams(): Promise<AdapterCommandResult>;
         startGame(): Promise<AdapterCommandResult>;
         startDuelGame(): Promise<AdapterCommandResult>;
+        exitDuelGame(): Promise<AdapterCommandResult>;
         startBotGame(): Promise<AdapterCommandResult>;
         setPositionPreferences(
           primaryRole: import('./domain/types').Role,

@@ -102,6 +102,14 @@ export interface LeagueGameResult {
   score?: string;
 }
 
+export interface LeagueDuelFirstBlood {
+  eventId: number;
+  eventTimeSeconds: number;
+  killerName: string;
+  victimName: string;
+  localPlayerWon: boolean;
+}
+
 export interface LeagueIdentity {
   riotPuuid: string;
   gameName: string;

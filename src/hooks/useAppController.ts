@@ -94,6 +94,8 @@ export function useAppController(): AppController {
   const gameResultChecksInFlightRef = useRef(new Set<string>());
   const reportedGameResultsRef = useRef(new Set<string>());
   const duelOperationsRef = useRef(new Set<string>());
+  const duelFirstBloodChecksInFlightRef = useRef(new Set<string>());
+  const reportedDuelFirstBloodRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
@@ -176,6 +178,92 @@ export function useAppController(): AppController {
               current.settings.desktopNotifications,
             );
             return;
+          }
+
+          if (
+            current.duelMatch &&
+            status.state === 'IN_GAME' &&
+            current.lifecycle === 'IN_GAME' &&
+            window.w3c &&
+            !reportedDuelFirstBloodRef.current.has(matchId) &&
+            !duelFirstBloodChecksInFlightRef.current.has(matchId)
+          ) {
+            duelFirstBloodChecksInFlightRef.current.add(matchId);
+            try {
+              const firstBlood = await window.w3c.league.getDuelFirstBlood();
+              if (firstBlood) {
+                const currentTeam = current.participants.find(
+                  (participant) => participant.isCurrentPlayer,
+                )?.team;
+                if (!currentTeam) {
+                  dispatch({
+                    type: 'SET_ERROR',
+                    message: 'First blood was detected, but your assigned team is unknown.',
+                  });
+                  return;
+                }
+
+                reportedDuelFirstBloodRef.current.add(matchId);
+                const winningTeam = firstBlood.localPlayerWon
+                  ? currentTeam
+                  : currentTeam === 'BLUE' ? 'RED' : 'BLUE';
+                const outcome = winningTeam === 'BLUE' ? 'BLUE_WIN' : 'RED_WIN';
+                const durationSeconds = Math.max(0, Math.round(firstBlood.eventTimeSeconds));
+                const score = winningTeam === 'BLUE' ? '1 — 0' : '0 — 1';
+                const completedAt = new Date().toISOString();
+
+                const [savedResult, exitedGame] = await Promise.allSettled([
+                  api.finishDuel(matchId, {
+                    outcome,
+                    durationSeconds,
+                    score,
+                    completedAt,
+                  }),
+                  window.w3c.league.exitDuelGame(),
+                ]);
+                dispatch({
+                  type: 'GAME_ENDED',
+                  result: {
+                    id: matchId,
+                    playedAt: completedAt,
+                    result: firstBlood.localPlayerWon ? 'WIN' : 'LOSS',
+                    role: current.primaryRole,
+                    durationSeconds,
+                    score,
+                  },
+                });
+                desktopNotification(
+                  firstBlood.localPlayerWon ? '1v1 victory' : '1v1 defeat',
+                  `${firstBlood.killerName} scored first blood. The duel is over.`,
+                  current.settings.desktopNotifications,
+                );
+                inactiveGameflowPollsRef.current.delete(matchId);
+                activeGameIdRef.current = null;
+
+                if (savedResult.status === 'fulfilled') {
+                  await api.getMyStats()
+                    .then((stats) => dispatch({ type: 'SET_STATS', stats }))
+                    .catch(() => undefined);
+                } else {
+                  dispatch({
+                    type: 'SET_ERROR',
+                    message: 'First blood was detected, but the server could not save the result.',
+                  });
+                }
+                if (
+                  exitedGame.status === 'rejected' ||
+                  !exitedGame.value.successful
+                ) {
+                  dispatch({
+                    type: 'SHOW_TOAST',
+                    message: 'The duel is finished; close the League game window manually.',
+                  });
+                }
+                return;
+              }
+            } finally {
+              duelFirstBloodChecksInFlightRef.current.delete(matchId);
+            }
           }
 
           const leftActiveGameflow =
@@ -1163,6 +1251,8 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
+    duelFirstBloodChecksInFlightRef.current.clear();
+    reportedDuelFirstBloodRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode && !current.localBotMatch) {
       try {
@@ -1286,6 +1376,8 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
+    duelFirstBloodChecksInFlightRef.current.clear();
+    reportedDuelFirstBloodRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode) {
       try {

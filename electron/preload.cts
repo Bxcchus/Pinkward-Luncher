@@ -23,6 +23,7 @@ const leagueBridge = {
   getStatus: () => ipcRenderer.invoke('league:get-status'),
   getIdentity: () => ipcRenderer.invoke('league:get-identity'),
   getGameResult: (gameId: number) => ipcRenderer.invoke('league:get-game-result', gameId),
+  getDuelFirstBlood: () => ipcRenderer.invoke('league:get-duel-first-blood'),
   createCustomLobby: (configuration: CustomLobbyConfiguration) =>
     ipcRenderer.invoke('league:create-custom-lobby', configuration),
   createBotLobby: (configuration: BotLobbyConfiguration) =>
@@ -32,6 +33,7 @@ const leagueBridge = {
   balanceDuelTeams: () => ipcRenderer.invoke('league:balance-duel-teams'),
   startGame: () => ipcRenderer.invoke('league:start-game'),
   startDuelGame: () => ipcRenderer.invoke('league:start-duel-game'),
+  exitDuelGame: () => ipcRenderer.invoke('league:exit-duel-game'),
   startBotGame: () => ipcRenderer.invoke('league:start-bot-game'),
   setPositionPreferences: (
     primaryRole: BotLobbyConfiguration['playerRole'],

@@ -27,6 +27,14 @@ export interface LeagueGameResultSnapshot {
   score?: string;
 }
 
+export interface DuelFirstBloodSnapshot {
+  eventId: number;
+  eventTimeSeconds: number;
+  killerName: string;
+  victimName: string;
+  localPlayerWon: boolean;
+}
+
 export interface LeagueIdentitySnapshot {
   riotPuuid: string;
   gameName: string;

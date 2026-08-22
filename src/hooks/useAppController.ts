@@ -745,6 +745,70 @@ export function useAppController(): AppController {
         );
       }
 
+      if (snapshot.status === 'FINISHED') {
+        if (!snapshot.result || !window.w3c) {
+          dispatch({
+            type: 'SET_ERROR',
+            message: 'The duel ended, but its authoritative result is unavailable.',
+          });
+          return;
+        }
+        runOnce(`${matchId}:server-finished`, async () => {
+          reportedDuelFirstBloodRef.current.add(matchId);
+          const currentTeam = snapshot.participants.find(
+            (participant) => participant.isCurrentPlayer,
+          )?.team;
+          const localWon = currentTeam
+            ? snapshot.result!.outcome === `${currentTeam}_WIN`
+            : false;
+          const durationSeconds = snapshot.result!.durationSeconds
+            ?? stateRef.current.inGameElapsedSeconds;
+          const score = snapshot.result!.score ?? '1 — 0';
+          const [acknowledged, exitedGame] = await Promise.allSettled([
+            api.finishDuel(matchId),
+            window.w3c!.league.exitDuelGame(),
+          ]);
+
+          dispatch({
+            type: 'GAME_ENDED',
+            result: {
+              id: matchId,
+              playedAt: snapshot.result!.completedAt,
+              result: snapshot.result!.outcome === 'UNKNOWN'
+                ? 'UNKNOWN'
+                : localWon ? 'WIN' : 'LOSS',
+              role: stateRef.current.primaryRole,
+              durationSeconds,
+              score,
+            },
+          });
+          desktopNotification(
+            localWon ? '1v1 victory' : '1v1 defeat',
+            'The server confirmed first blood. The duel is over.',
+            stateRef.current.settings.desktopNotifications,
+          );
+          inactiveGameflowPollsRef.current.delete(matchId);
+          activeGameIdRef.current = null;
+          await api.getMyStats()
+            .then((stats) => dispatch({ type: 'SET_STATS', stats }))
+            .catch(() => undefined);
+
+          if (acknowledged.status === 'rejected') {
+            dispatch({
+              type: 'SHOW_TOAST',
+              message: 'The result is saved, but Pinkward could not acknowledge the finished duel.',
+            });
+          }
+          if (exitedGame.status === 'rejected' || !exitedGame.value.successful) {
+            dispatch({
+              type: 'SHOW_TOAST',
+              message: 'The duel is finished; close the League game window manually.',
+            });
+          }
+        });
+        return;
+      }
+
       if (snapshot.status === 'MATCHED' && owner && credentials && window.w3c) {
         runOnce(`${matchId}:create`, async () => {
           dispatch({ type: 'CREATION_STEP', step: 1 });

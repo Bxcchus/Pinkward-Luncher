@@ -141,6 +141,7 @@ export type DuelStatus =
   | 'LOBBY_READY'
   | 'BOTH_JOINED'
   | 'STARTED'
+  | 'FINISHED'
   | 'CANCELLED';
 
 export interface DuelSnapshot {
@@ -149,6 +150,12 @@ export interface DuelSnapshot {
   ownerId: string | null;
   credentials: { lobbyName: string; password: string } | null;
   partyId: string | null;
+  result: {
+    outcome: 'BLUE_WIN' | 'RED_WIN' | 'UNKNOWN';
+    durationSeconds: number | null;
+    score: string | null;
+    completedAt: string;
+  } | null;
   participants: MatchParticipant[];
 }
 

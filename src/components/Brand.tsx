@@ -1,15 +1,15 @@
+import appLogoUrl from '../assets/app-logo.png';
+
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <div className={`brand ${compact ? 'brand--compact' : ''}`} aria-label="W3C-LoL">
+    <div className={`brand ${compact ? 'brand--compact' : ''}`} aria-label="Pinkward">
       <div className="brand__mark" aria-hidden="true">
-        <span>W</span>
-        <i />
+        <img src={appLogoUrl} alt="" draggable={false} />
       </div>
       {!compact && (
         <div className="brand__type">
-          <strong>W3C</strong>
-          <span>LoL</span>
-          <small>COMPANION</small>
+          <strong>Pinkward</strong>
+          <small>Companion</small>
         </div>
       )}
     </div>

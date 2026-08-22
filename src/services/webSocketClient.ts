@@ -1,4 +1,4 @@
-import type { MatchLifecycle, MatchParticipant } from '../domain/types';
+import type { ChatMessage, MatchLifecycle, MatchParticipant } from '../domain/types';
 
 export type LeagueOperationStatus = 'SUCCESS' | 'FAILED' | 'UNSUPPORTED' | 'UNKNOWN';
 
@@ -38,6 +38,17 @@ export type ServerEvent =
   | { type: 'READY_CHECK_STARTED'; payload: { readyCheckId: string; timeoutSeconds: number } }
   | { type: 'READY_CHECK_UPDATED'; payload: { acceptedCount: number } }
   | {
+      type: 'PARTY_INVITATION_RECEIVED';
+      payload: {
+        id: string;
+        partyId: string;
+        leaderId: string;
+        gameName: string;
+        tagLine: string;
+        createdAt: string;
+      };
+    }
+  | {
       type: 'MATCH_READY';
       payload: { matchId: string; participants: MatchParticipant[] };
     }
@@ -76,7 +87,8 @@ export type ServerEvent =
         resolutionSource?: string;
       };
     }
-  | { type: 'MATCH_CANCELLED'; payload: { matchId: string; reason?: string } };
+  | { type: 'MATCH_CANCELLED'; payload: { matchId: string; reason?: string } }
+  | { type: 'CHAT_MESSAGE'; payload: ChatMessage };
 
 export type ClientEvent =
   | {

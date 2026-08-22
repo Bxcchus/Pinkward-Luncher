@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell } from './components/AppShell';
-import { Icon } from './components/Icon';
+import { PartyDialog } from './components/PartyDialog';
+import { Toast } from './components/UI';
 import { useAppController } from './hooks/useAppController';
 import { LoginScreen } from './screens/LoginScreen';
 import {
   CreatingMatchScreen,
+  ChatScreen,
   HistoryScreen,
   HomeScreen,
   JoiningLobbyScreen,
@@ -19,6 +21,8 @@ import {
 export default function App() {
   const controller = useAppController();
   const { state } = controller;
+  const [dismissedInvitationId, setDismissedInvitationId] = useState<string | null>(null);
+  const pendingInvitation = state.partyInvitations[0];
 
   useEffect(() => {
     if (!state.toast) return;
@@ -39,6 +43,7 @@ export default function App() {
     case 'MATCH_OVERVIEW': screen = <MatchOverviewScreen controller={controller} />; break;
     case 'POST_GAME': screen = <PostGameScreen controller={controller} />; break;
     case 'HISTORY': screen = <HistoryScreen state={state} />; break;
+    case 'CHAT': screen = <ChatScreen controller={controller} />; break;
     case 'SETTINGS': screen = <SettingsScreen controller={controller} />; break;
     default: screen = <HomeScreen controller={controller} />;
   }
@@ -46,7 +51,14 @@ export default function App() {
   return (
     <AppShell state={state} controller={controller}>
       {screen}
-      {state.toast && <div className="toast" role="status"><Icon name="check" size={17} /> {state.toast}</div>}
+      {pendingInvitation && pendingInvitation.id !== dismissedInvitationId && (
+        <PartyDialog
+          controller={controller}
+          locked={false}
+          onClose={() => setDismissedInvitationId(pendingInvitation.id)}
+        />
+      )}
+      {state.toast && <Toast>{state.toast}</Toast>}
     </AppShell>
   );
 }

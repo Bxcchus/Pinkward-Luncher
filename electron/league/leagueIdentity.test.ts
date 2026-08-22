@@ -5,9 +5,15 @@ describe('League session identity parsing', () => {
   it('returns only Riot ID and supported region from an authenticated session', () => {
     expect(parseLeagueIdentity(
       { connected: true, state: 'SUCCEEDED', idToken: 'must-not-leak' },
-      { gameName: 'Claude Code', tagLine: 'Java', puuid: 'private-id' },
+      { gameName: 'Claude Code', tagLine: 'Java', puuid: 'private-id', profileIconId: 29 },
       { region: 'EUW', locale: 'fr_FR' },
-    )).toEqual({ riotPuuid: 'private-id', gameName: 'Claude Code', tagLine: 'Java', region: 'EUW' });
+    )).toEqual({
+      riotPuuid: 'private-id',
+      gameName: 'Claude Code',
+      tagLine: 'Java',
+      region: 'EUW',
+      profileIconId: 29,
+    });
   });
 
   it('rejects a session that is not fully authenticated', () => {

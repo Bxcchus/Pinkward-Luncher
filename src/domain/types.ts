@@ -12,6 +12,7 @@ export type AppScreen =
   | 'MATCH_OVERVIEW'
   | 'POST_GAME'
   | 'HISTORY'
+  | 'CHAT'
   | 'SETTINGS';
 
 export type ServerStatus = 'CONNECTING' | 'CONNECTED' | 'DISCONNECTED' | 'SIMULATION';
@@ -45,6 +46,41 @@ export interface PlayerIdentity {
   gameName: string;
   tagLine: string;
   region: string;
+  profileIconDataUrl?: string;
+}
+
+export interface PartyMember {
+  id: string;
+  gameName: string;
+  tagLine: string;
+  status: 'INVITED' | 'JOINED';
+  leader?: boolean;
+  primaryRole?: Role | null;
+  secondaryRole?: Role | null;
+}
+
+export interface PartyInvitation {
+  id: string;
+  partyId: string;
+  leaderId: string;
+  gameName: string;
+  tagLine: string;
+  createdAt: string;
+}
+
+export interface PartyContext {
+  partyId: string | null;
+  leaderId: string | null;
+  members: Array<{
+    playerId: string;
+    gameName: string;
+    tagLine: string;
+    leader: boolean;
+    joined: boolean;
+    primaryRole: Role | null;
+    secondaryRole: Role | null;
+  }>;
+  invitations: PartyInvitation[];
 }
 
 export interface LeagueStatus {
@@ -71,6 +107,8 @@ export interface LeagueIdentity {
   gameName: string;
   tagLine: string;
   region: string;
+  profileIconId?: number;
+  profileIconDataUrl?: string;
 }
 
 export interface LobbyCredentials {
@@ -109,10 +147,40 @@ export interface DuelSnapshot {
 export interface MatchSummary {
   id: string;
   playedAt: string;
-  result: 'WIN' | 'LOSS';
+  result: 'WIN' | 'LOSS' | 'UNKNOWN';
   role: Role;
   durationSeconds: number;
   score: string;
+}
+
+export interface RoleStats {
+  role: Role;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+}
+
+export interface PlayerStats {
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  unresolved: number;
+  winRate: number;
+  averageDurationSeconds: number;
+  currentWinStreak: number;
+  favoriteRole: Role | null;
+  roles: RoleStats[];
+  matches: MatchSummary[];
+}
+
+export interface ChatMessage {
+  id: string;
+  authorId: string;
+  gameName: string;
+  tagLine: string;
+  content: string;
+  sentAt: string;
 }
 
 export interface AppSettings {
@@ -126,6 +194,10 @@ export interface AppSettings {
 export interface AppState {
   screen: AppScreen;
   player: PlayerIdentity | null;
+  partyId: string | null;
+  partyLeaderId: string | null;
+  partyMembers: PartyMember[];
+  partyInvitations: PartyInvitation[];
   primaryRole: Role;
   secondaryRole: Role;
   serverStatus: ServerStatus;
@@ -152,15 +224,22 @@ export interface AppState {
   inGameElapsedSeconds: number;
   lastResult: MatchSummary | null;
   history: MatchSummary[];
+  stats: PlayerStats | null;
+  chatMessages: ChatMessage[];
+  unreadChatMessages: number;
   settings: AppSettings;
   toast: string | null;
   error: string | null;
 }
 
 export type AppAction =
-  | { type: 'LOGIN_SUCCESS'; player: PlayerIdentity }
+  | { type: 'LOGIN_SUCCESS'; player: PlayerIdentity; history: MatchSummary[] }
   | { type: 'LOGOUT' }
-  | { type: 'NAVIGATE'; screen: 'HOME' | 'PLAY' | 'HISTORY' | 'SETTINGS' }
+  | { type: 'NAVIGATE'; screen: 'HOME' | 'PLAY' | 'HISTORY' | 'CHAT' | 'SETTINGS' }
+  | { type: 'ADD_PARTY_MEMBER'; member: PartyMember }
+  | { type: 'REMOVE_PARTY_MEMBER'; memberId: string }
+  | { type: 'SET_PARTY_CONTEXT'; context: PartyContext }
+  | { type: 'RECEIVE_PARTY_INVITATION'; invitation: PartyInvitation }
   | { type: 'SET_PRIMARY_ROLE'; role: Role }
   | { type: 'SET_SECONDARY_ROLE'; role: Role }
   | { type: 'SET_SERVER_STATUS'; status: ServerStatus }
@@ -195,6 +274,9 @@ export type AppAction =
   | { type: 'SET_LIFECYCLE'; lifecycle: MatchLifecycle }
   | { type: 'GAME_TICK' }
   | { type: 'GAME_ENDED'; result: MatchSummary }
+  | { type: 'SET_STATS'; stats: PlayerStats }
+  | { type: 'SET_CHAT_MESSAGES'; messages: ChatMessage[] }
+  | { type: 'RECEIVE_CHAT_MESSAGE'; message: ChatMessage }
   | { type: 'PLAY_AGAIN' }
   | { type: 'SET_SETTING'; key: keyof AppSettings; value: boolean }
   | { type: 'SHOW_TOAST'; message: string }

@@ -19,6 +19,11 @@ declare global {
   interface Window {
     w3c?: {
       platform: string;
+      window: {
+        minimize(): void;
+        toggleMaximize(): void;
+        close(): void;
+      };
       league: {
         getInstallationPath(): Promise<string | null>;
         selectInstallationPath(): Promise<{ path: string | null; selected: boolean; error?: string }>;

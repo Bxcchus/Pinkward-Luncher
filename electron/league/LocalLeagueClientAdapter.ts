@@ -98,6 +98,15 @@ interface GameflowSession {
   gameData?: { gameId?: number };
 }
 
+export function isManagedTestLobbyName(
+  lobbyName: string | undefined,
+  mode: 'BOTS' | 'DUEL',
+): boolean {
+  if (!lobbyName) return false;
+  const suffix = mode === 'DUEL' ? 'DUEL-' : 'BOTS-';
+  return lobbyName.startsWith(`PINKWARD-${suffix}`) || lobbyName.startsWith(`W3C-${suffix}`);
+}
+
 const commandResult = (
   status: AdapterCommandResult['status'],
   diagnosticCode: string,
@@ -178,7 +187,16 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
         client.get<unknown>('/lol-summoner/v1/current-summoner'),
         client.get<unknown>('/riotclient/region-locale'),
       ]);
-      return parseLeagueIdentity(session, summoner, regionLocale);
+      const identity = parseLeagueIdentity(session, summoner, regionLocale);
+      if (!identity || identity.profileIconId === undefined) return identity;
+      try {
+        const profileIconDataUrl = await client.getImageDataUrl(
+          `/lol-game-data/assets/v1/profile-icons/${identity.profileIconId}.jpg`,
+        );
+        return { ...identity, profileIconDataUrl };
+      } catch {
+        return identity;
+      }
     } catch {
       return null;
     }
@@ -445,7 +463,7 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
       const botLobbyEligible =
         mode === 'BOTS' &&
         lobby.gameConfig.isCustom === true &&
-        lobby.gameConfig.customLobbyName?.startsWith('W3C-BOTS-') === true &&
+        isManagedTestLobbyName(lobby.gameConfig.customLobbyName, 'BOTS') &&
         lobby.canStartActivity &&
         lobby.localMember.isLeader &&
         lobby.localMember.allowedStartActivity &&
@@ -456,7 +474,7 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
       const duelLobbyEligible =
         mode === 'DUEL' &&
         lobby.gameConfig.isCustom === true &&
-        lobby.gameConfig.customLobbyName?.startsWith('W3C-DUEL-') === true &&
+        isManagedTestLobbyName(lobby.gameConfig.customLobbyName, 'DUEL') &&
         lobby.canStartActivity &&
         lobby.localMember.isLeader &&
         lobby.localMember.allowedStartActivity &&

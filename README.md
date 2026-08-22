@@ -1,6 +1,6 @@
-# W3C-LoL Desktop Companion
+# Pinkward Desktop Companion
 
-Electron + React + TypeScript companion for the W3C-LoL matchmaking lifecycle.
+Electron + React + TypeScript companion for the Pinkward matchmaking lifecycle.
 
 ## Run locally
 

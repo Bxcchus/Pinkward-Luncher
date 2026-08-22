@@ -13,6 +13,7 @@ import type {
 } from '../domain/types';
 import { ApiError, W3cApiClient } from '../services/apiClient';
 import { handleLeagueCommand, toLobbyCredentials } from '../services/leagueCommandHandler';
+import { loadMatchHistory, saveMatchHistory } from '../services/matchHistoryStorage';
 import { configureServerAddress, runtimeConfig } from '../services/runtimeConfig';
 import {
   lifecycleForServerEvent,
@@ -46,9 +47,15 @@ export interface AppController {
   state: AppState;
   login(gameName: string, tagLine: string, region: string): Promise<void>;
   logout(): void;
-  navigate(screen: 'HOME' | 'PLAY' | 'HISTORY' | 'SETTINGS'): void;
+  navigate(screen: 'HOME' | 'PLAY' | 'HISTORY' | 'CHAT' | 'SETTINGS'): void;
+  sendChatMessage(content: string): Promise<boolean>;
   setPrimaryRole(role: Role): void;
   setSecondaryRole(role: Role): void;
+  inviteToParty(riotId: string): Promise<boolean>;
+  removePartyMember(memberId: string): Promise<void>;
+  acceptPartyInvitation(invitationId: string): Promise<void>;
+  declinePartyInvitation(invitationId: string): Promise<void>;
+  leaveParty(): Promise<void>;
   findMatch(): Promise<void>;
   leaveQueue(): Promise<void>;
   acceptReadyCheck(): Promise<void>;
@@ -89,6 +96,7 @@ export function useAppController(): AppController {
   const duelOperationsRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
   const leagueWasRunningRef = useRef<boolean | null>(null);
+  const notifiedPartyInvitationsRef = useRef(new Set<string>());
 
   useEffect(() => {
     stateRef.current = state;
@@ -108,6 +116,27 @@ export function useAppController(): AppController {
   useEffect(() => {
     localStorage.setItem('w3c.settings', JSON.stringify(state.settings));
   }, [state.settings]);
+
+  useEffect(() => {
+    if (state.player) saveMatchHistory(state.player.id, state.history);
+  }, [state.history, state.player]);
+
+  useEffect(() => {
+    const invitation = state.partyInvitations.find(
+      (candidate) => !notifiedPartyInvitationsRef.current.has(candidate.id),
+    );
+    if (!invitation) return;
+    notifiedPartyInvitationsRef.current.add(invitation.id);
+    dispatch({
+      type: 'SHOW_TOAST',
+      message: `${invitation.gameName}#${invitation.tagLine} invited you — open the party invitation to join`,
+    });
+    desktopNotification(
+      'Pinkward party invitation',
+      `${invitation.gameName}#${invitation.tagLine} invited you to their group.`,
+      state.settings.desktopNotifications,
+    );
+  }, [state.partyInvitations, state.settings.desktopNotifications]);
 
   useEffect(() => {
     let active = true;
@@ -130,7 +159,7 @@ export function useAppController(): AppController {
           dispatch({ type: 'SHOW_TOAST', message: 'League Client closed — reopen it to continue' });
           desktopNotification(
             'League Client closed',
-            'Reopen League and sign in to continue using W3C-LoL.',
+            'Reopen League and sign in to continue using Pinkward.',
             current.settings.desktopNotifications,
           );
         }
@@ -203,7 +232,17 @@ export function useAppController(): AppController {
                     message: 'The local test game ended without a recorded winner.',
                   });
                   dispatch({ type: 'LEAVE_QUEUE' });
-                  if (current.duelMatch) void api.finishDuel(matchId).catch(() => undefined);
+                  if (current.duelMatch) {
+                    await api.finishDuel(matchId, {
+                      outcome: result.outcome,
+                      durationSeconds: result.durationSeconds,
+                      score: result.score,
+                      completedAt: new Date().toISOString(),
+                    }).catch(() => undefined);
+                    await api.getMyStats()
+                      .then((stats) => dispatch({ type: 'SET_STATS', stats }))
+                      .catch(() => undefined);
+                  }
                   inactiveGameflowPollsRef.current.delete(matchId);
                   activeGameIdRef.current = null;
                   return;
@@ -222,7 +261,17 @@ export function useAppController(): AppController {
                     score: result.score ?? '—',
                   },
                 });
-                if (current.duelMatch) void api.finishDuel(matchId).catch(() => undefined);
+                if (current.duelMatch) {
+                  await api.finishDuel(matchId, {
+                    outcome: result.outcome,
+                    durationSeconds: result.durationSeconds ?? current.inGameElapsedSeconds,
+                    score: result.score,
+                    completedAt: new Date().toISOString(),
+                  }).catch(() => undefined);
+                  await api.getMyStats()
+                    .then((stats) => dispatch({ type: 'SET_STATS', stats }))
+                    .catch(() => undefined);
+                }
                 inactiveGameflowPollsRef.current.delete(matchId);
                 activeGameIdRef.current = null;
                 reportedGameResultsRef.current.add(reportKey);
@@ -331,6 +380,24 @@ export function useAppController(): AppController {
     [],
   );
 
+  const refreshStats = useCallback(async () => {
+    try {
+      const stats = await api.getMyStats();
+      dispatch({ type: 'SET_STATS', stats });
+    } catch {
+      // Match history remains available from the local cache while the server is unavailable.
+    }
+  }, [api]);
+
+  const refreshChat = useCallback(async () => {
+    try {
+      const messages = await api.getChatMessages();
+      dispatch({ type: 'SET_CHAT_MESSAGES', messages });
+    } catch {
+      // The live socket can continue delivering messages if history loading fails temporarily.
+    }
+  }, [api]);
+
   const handleServerEvent = useCallback((event: ServerEvent) => {
     const current = stateRef.current;
     if (current.localBotMatch) return;
@@ -338,6 +405,12 @@ export function useAppController(): AppController {
     if (lifecycle) dispatch({ type: 'SET_LIFECYCLE', lifecycle });
 
     switch (event.type) {
+      case 'QUEUE_JOINED':
+        dispatch({ type: 'FIND_MATCH' });
+        break;
+      case 'QUEUE_LEFT':
+        dispatch({ type: 'LEAVE_QUEUE' });
+        break;
       case 'MATCH_FOUND':
       case 'READY_CHECK_STARTED':
         dispatch({ type: 'MATCH_FOUND', readyCheckId: event.payload.readyCheckId });
@@ -349,6 +422,9 @@ export function useAppController(): AppController {
         break;
       case 'READY_CHECK_UPDATED':
         dispatch({ type: 'READY_PROGRESS', acceptedCount: event.payload.acceptedCount });
+        break;
+      case 'PARTY_INVITATION_RECEIVED':
+        dispatch({ type: 'RECEIVE_PARTY_INVITATION', invitation: event.payload });
         break;
       case 'MATCH_READY':
         dispatch({
@@ -430,6 +506,7 @@ export function useAppController(): AppController {
           score: event.payload.score ?? '—',
         };
         dispatch({ type: 'GAME_ENDED', result: summary });
+        window.setTimeout(() => void refreshStats(), 1_000);
         break;
       }
       case 'MATCH_CANCELLED':
@@ -439,10 +516,13 @@ export function useAppController(): AppController {
         });
         dispatch({ type: 'LEAVE_QUEUE' });
         break;
+      case 'CHAT_MESSAGE':
+        dispatch({ type: 'RECEIVE_CHAT_MESSAGE', message: event.payload });
+        break;
       default:
         break;
     }
-  }, [runCommandOnce]);
+  }, [refreshStats, runCommandOnce]);
 
   useEffect(() => {
     if (!state.player || state.settings.demoMode) {
@@ -471,6 +551,9 @@ export function useAppController(): AppController {
     if (!state.player || state.settings.demoMode) return;
     const heartbeat = () => {
       void api.heartbeat().catch(() => dispatch({ type: 'SET_SERVER_STATUS', status: 'DISCONNECTED' }));
+      void api.getParty()
+        .then((context) => dispatch({ type: 'SET_PARTY_CONTEXT', context }))
+        .catch(() => undefined);
       socketRef.current?.send({
         type: 'HEARTBEAT',
         payload: {
@@ -488,26 +571,40 @@ export function useAppController(): AppController {
   }, [api, state.player, state.settings.demoMode]);
 
   useEffect(() => {
+    if (!state.player || !state.partyId || state.settings.demoMode) return;
+    const timeout = window.setTimeout(() => {
+      void api.updatePartyRoles(state.primaryRole, state.secondaryRole)
+        .then((context) => dispatch({ type: 'SET_PARTY_CONTEXT', context }))
+        .catch(() => undefined);
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [api, state.partyId, state.player, state.primaryRole, state.secondaryRole, state.settings.demoMode]);
+
+  useEffect(() => {
     if (state.screen !== 'SEARCHING') return;
     let elapsed = 0;
     const interval = window.setInterval(() => {
       elapsed += 1;
       dispatch({
         type: 'QUEUE_TICK',
-        playersSearching: state.settings.demoMode ? 38 + (elapsed % 7) : undefined,
+        playersSearching: state.settings.demoMode
+          ? state.settings.duelMode ? Math.min(2, 1 + (elapsed % 2)) : 38 + (elapsed % 7)
+          : undefined,
       });
       if (state.settings.demoMode && elapsed >= 5) {
         window.clearInterval(interval);
         dispatch({ type: 'MATCH_FOUND', readyCheckId: 'demo-ready-check' });
         desktopNotification(
           'Match found',
-          '10 players found. Accept the ready check.',
+          state.settings.duelMode
+            ? 'Your 1v1 opponent is ready. Accept the ready check.'
+            : '10 players found. Accept the ready check.',
           state.settings.desktopNotifications,
         );
       }
     }, 1_000);
     return () => window.clearInterval(interval);
-  }, [state.screen, state.settings.demoMode, state.settings.desktopNotifications]);
+  }, [state.screen, state.settings.demoMode, state.settings.desktopNotifications, state.settings.duelMode]);
 
   useEffect(() => {
     const activeDuelScreen = state.screen === 'SEARCHING' || state.duelMatch;
@@ -788,7 +885,7 @@ export function useAppController(): AppController {
     }
     let active = true;
     const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase();
-    const lobby = { name: `W3C-BOTS-${suffix}`, password: suffix };
+    const lobby = { name: `PINKWARD-BOTS-${suffix}`, password: suffix };
     dispatch({ type: 'CREATION_STEP', step: 1 });
     void window.w3c.league.createBotLobby({
       ...lobby,
@@ -942,7 +1039,7 @@ export function useAppController(): AppController {
         } catch {
           dispatch({
             type: 'SET_ERROR',
-            message: 'Enter a valid server address, for example http://192.168.1.12:8080.',
+            message: 'Enter a valid server address, for example play.pinkward.lol.',
           });
           return;
         }
@@ -972,32 +1069,86 @@ export function useAppController(): AppController {
           if (!leagueIdentity) {
             dispatch({
               type: 'SET_ERROR',
-              message: 'Start League and sign in before connecting to W3C-LoL.',
+              message: 'Start League and sign in before connecting to Pinkward.',
             });
             return;
           }
           dispatch({ type: 'SET_SERVER_STATUS', status: 'CONNECTING' });
-          player = await api.login({
+          const authenticatedPlayer = await api.login({
             riotPuuid: leagueIdentity.riotPuuid,
             gameName: leagueIdentity.gameName,
             tagLine: leagueIdentity.tagLine,
             region: leagueIdentity.region,
           });
+          player = {
+            ...authenticatedPlayer,
+            ...(leagueIdentity.profileIconDataUrl
+              ? { profileIconDataUrl: leagueIdentity.profileIconDataUrl }
+              : {}),
+          };
           dispatch({ type: 'SET_SERVER_STATUS', status: 'CONNECTED' });
         }
-        dispatch({ type: 'LOGIN_SUCCESS', player });
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          player,
+          history: loadMatchHistory(player.id),
+        });
+        if (!stateRef.current.settings.demoMode) {
+          const party = await api.getParty();
+          dispatch({ type: 'SET_PARTY_CONTEXT', context: party });
+          await refreshStats();
+          await refreshChat();
+        }
       } catch (error) {
         dispatch({ type: 'SET_SERVER_STATUS', status: 'DISCONNECTED' });
         dispatch({
           type: 'SET_ERROR',
           message: error instanceof ApiError && error.status === 401
             ? 'The League identity was rejected by the server.'
-            : 'Unable to reach the W3C-LoL server. Enable demo mode to explore the full flow.',
+            : 'Unable to reach the Pinkward server. Enable demo mode to explore the full flow.',
         });
       }
     },
-    [api],
+    [api, refreshChat, refreshStats],
   );
+
+  const sendChatMessage = useCallback(async (content: string): Promise<boolean> => {
+    const current = stateRef.current;
+    const normalized = content.trim();
+    if (!normalized || normalized.length > 500 || !current.player) return false;
+    if (current.settings.demoMode) {
+      dispatch({
+        type: 'RECEIVE_CHAT_MESSAGE',
+        message: {
+          id: crypto.randomUUID(),
+          authorId: current.player.id,
+          gameName: current.player.gameName,
+          tagLine: current.player.tagLine,
+          content: normalized,
+          sentAt: new Date().toISOString(),
+        },
+      });
+      return true;
+    }
+    try {
+      const message = await api.sendChatMessage(normalized);
+      dispatch({ type: 'RECEIVE_CHAT_MESSAGE', message });
+      return true;
+    } catch (error) {
+      dispatch({
+        type: 'SHOW_TOAST',
+        message: error instanceof ApiError && error.status === 429
+          ? 'Please wait two seconds before sending again'
+          : 'Your message could not be sent',
+      });
+      return false;
+    }
+  }, [api]);
+
+  const navigate = useCallback((screen: 'HOME' | 'PLAY' | 'HISTORY' | 'CHAT' | 'SETTINGS') => {
+    dispatch({ type: 'NAVIGATE', screen });
+    if (screen === 'CHAT' && !stateRef.current.settings.demoMode) void refreshChat();
+  }, [refreshChat]);
 
   const findMatch = useCallback(async () => {
     const current = stateRef.current;
@@ -1013,6 +1164,9 @@ export function useAppController(): AppController {
             secondaryRole: current.secondaryRole,
           });
         } else {
+          if (current.partyId) {
+            await api.updatePartyRoles(current.primaryRole, current.secondaryRole);
+          }
           await api.joinQueue({
             primaryRole: current.primaryRole,
             secondaryRole: current.secondaryRole,
@@ -1024,6 +1178,99 @@ export function useAppController(): AppController {
       }
     }
     dispatch({ type: 'FIND_MATCH' });
+  }, [api]);
+
+  const inviteToParty = useCallback(async (riotId: string): Promise<boolean> => {
+    const current = stateRef.current;
+    const normalized = riotId.trim();
+    const separator = normalized.lastIndexOf('#');
+    const gameName = separator > 0 ? normalized.slice(0, separator).trim() : '';
+    const tagLine = separator > 0 ? normalized.slice(separator + 1).trim().toUpperCase() : '';
+
+    if (!gameName || !tagLine || tagLine.includes('#')) {
+      dispatch({ type: 'SHOW_TOAST', message: 'Use a complete Riot ID, for example Player#EUW' });
+      return false;
+    }
+    if (current.partyMembers.length >= 4) {
+      dispatch({ type: 'SHOW_TOAST', message: 'Your party is full — maximum 5 players' });
+      return false;
+    }
+
+    const memberId = `${gameName}#${tagLine}`.toLocaleLowerCase();
+    const currentRiotId = current.player
+      ? `${current.player.gameName}#${current.player.tagLine}`.toLocaleLowerCase()
+      : '';
+    if (memberId === currentRiotId) {
+      dispatch({ type: 'SHOW_TOAST', message: 'You are already the party leader' });
+      return false;
+    }
+    if (current.partyMembers.some((member) => member.id === memberId)) {
+      dispatch({ type: 'SHOW_TOAST', message: 'This player is already in your party' });
+      return false;
+    }
+
+    if (current.settings.demoMode) {
+      dispatch({ type: 'ADD_PARTY_MEMBER', member: { id: memberId, gameName, tagLine, status: 'INVITED' } });
+    } else {
+      try {
+        const context = await api.inviteToParty(gameName, tagLine);
+        dispatch({ type: 'SET_PARTY_CONTEXT', context });
+      } catch (error) {
+        dispatch({ type: 'SHOW_TOAST', message: error instanceof ApiError && error.status === 404
+          ? 'Player not found. They must connect to Pinkward before you can invite them.'
+          : 'The invitation could not be sent.' });
+        return false;
+      }
+    }
+    if (current.settings.duelMode) dispatch({ type: 'SET_SETTING', key: 'duelMode', value: false });
+    dispatch({ type: 'SHOW_TOAST', message: `Invitation sent to ${gameName}#${tagLine}` });
+    return true;
+  }, [api]);
+
+  const removePartyMember = useCallback(async (memberId: string) => {
+    const current = stateRef.current;
+    if (current.settings.demoMode) {
+      dispatch({ type: 'REMOVE_PARTY_MEMBER', memberId });
+    } else {
+      try {
+        const context = await api.removePartyMember(memberId);
+        dispatch({ type: 'SET_PARTY_CONTEXT', context });
+      } catch {
+        dispatch({ type: 'SHOW_TOAST', message: 'This player could not be removed.' });
+        return;
+      }
+    }
+    dispatch({ type: 'SHOW_TOAST', message: 'Player removed from the party' });
+  }, [api]);
+
+  const acceptPartyInvitation = useCallback(async (invitationId: string) => {
+    try {
+      const context = await api.acceptPartyInvitation(invitationId);
+      dispatch({ type: 'SET_PARTY_CONTEXT', context });
+      dispatch({ type: 'SET_SETTING', key: 'duelMode', value: false });
+      dispatch({ type: 'SHOW_TOAST', message: 'You joined the party' });
+    } catch {
+      dispatch({ type: 'SHOW_TOAST', message: 'This invitation is no longer available.' });
+    }
+  }, [api]);
+
+  const declinePartyInvitation = useCallback(async (invitationId: string) => {
+    try {
+      const context = await api.declinePartyInvitation(invitationId);
+      dispatch({ type: 'SET_PARTY_CONTEXT', context });
+    } catch {
+      dispatch({ type: 'SHOW_TOAST', message: 'This invitation is no longer available.' });
+    }
+  }, [api]);
+
+  const leaveParty = useCallback(async () => {
+    try {
+      const context = await api.leaveParty();
+      dispatch({ type: 'SET_PARTY_CONTEXT', context });
+      dispatch({ type: 'SHOW_TOAST', message: 'You left the party' });
+    } catch {
+      dispatch({ type: 'SHOW_TOAST', message: 'You cannot leave the party while matchmaking.' });
+    }
   }, [api]);
 
   const playAgain = useCallback(async () => {
@@ -1040,6 +1287,9 @@ export function useAppController(): AppController {
             secondaryRole: current.secondaryRole,
           });
         } else {
+          if (current.partyId) {
+            await api.updatePartyRoles(current.primaryRole, current.secondaryRole);
+          }
           await api.joinQueue({
             primaryRole: current.primaryRole,
             secondaryRole: current.secondaryRole,
@@ -1169,9 +1419,15 @@ export function useAppController(): AppController {
     state,
     login,
     logout: () => dispatch({ type: 'LOGOUT' }),
-    navigate: (screen) => dispatch({ type: 'NAVIGATE', screen }),
+    navigate,
+    sendChatMessage,
     setPrimaryRole: (role) => dispatch({ type: 'SET_PRIMARY_ROLE', role }),
     setSecondaryRole: (role) => dispatch({ type: 'SET_SECONDARY_ROLE', role }),
+    inviteToParty,
+    removePartyMember,
+    acceptPartyInvitation,
+    declinePartyInvitation,
+    leaveParty,
     findMatch,
     leaveQueue,
     acceptReadyCheck,

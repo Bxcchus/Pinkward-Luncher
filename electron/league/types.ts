@@ -32,6 +32,8 @@ export interface LeagueIdentitySnapshot {
   gameName: string;
   tagLine: string;
   region: string;
+  profileIconId?: number;
+  profileIconDataUrl?: string;
 }
 
 export interface LobbyCredentials {

@@ -83,7 +83,8 @@ function createWindow(): void {
     minWidth: 1080,
     minHeight: 720,
     backgroundColor: '#070b10',
-    title: 'W3C-LoL',
+    title: 'Pinkward',
+    frame: false,
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
@@ -108,6 +109,14 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.on('window:minimize', (event) => BrowserWindow.fromWebContents(event.sender)?.minimize());
+  ipcMain.on('window:toggle-maximize', (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
+  });
+  ipcMain.on('window:close', (event) => BrowserWindow.fromWebContents(event.sender)?.close());
   ipcMain.handle('league:get-installation-path', () => leagueAdapter.getInstallationDirectory());
   ipcMain.handle('league:select-installation-path', async () => {
     const focusedWindow = BrowserWindow.getFocusedWindow();

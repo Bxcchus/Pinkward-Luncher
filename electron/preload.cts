@@ -42,4 +42,9 @@ const leagueBridge = {
 contextBridge.exposeInMainWorld('w3c', {
   league: leagueBridge,
   platform: process.platform,
+  window: {
+    minimize: () => ipcRenderer.send('window:minimize'),
+    toggleMaximize: () => ipcRenderer.send('window:toggle-maximize'),
+    close: () => ipcRenderer.send('window:close'),
+  },
 });

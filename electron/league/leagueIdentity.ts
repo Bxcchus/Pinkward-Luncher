@@ -18,6 +18,12 @@ function supportedRegion(value: unknown): string | null {
   return null;
 }
 
+function positiveInteger(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : undefined;
+}
+
 export function parseLeagueIdentity(
   sessionValue: unknown,
   summonerValue: unknown,
@@ -41,5 +47,12 @@ export function parseLeagueIdentity(
   const riotPuuid = text(summoner.puuid);
   const region = supportedRegion(regionLocale.region);
   if (!riotPuuid || !gameName || !tagLine || !region) return null;
-  return { riotPuuid, gameName, tagLine, region };
+  const profileIconId = positiveInteger(summoner.profileIconId);
+  return {
+    riotPuuid,
+    gameName,
+    tagLine,
+    region,
+    ...(profileIconId === undefined ? {} : { profileIconId }),
+  };
 }

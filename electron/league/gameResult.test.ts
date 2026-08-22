@@ -56,6 +56,31 @@ describe('League match-history result parsing', () => {
     });
   });
 
+  it('accepts the two-participant payload returned for a completed 1v1', () => {
+    expect(
+      parseLeagueGameResult(
+        {
+          gameId: 7_956_713_220,
+          gameDuration: 725,
+          mapId: 11,
+          queueId: 3100,
+          participants: participants([0], [0]),
+          teams: [
+            { teamId: 100, win: 'Fail' },
+            { teamId: 200, win: 'Win' },
+          ],
+        },
+        7_956_713_220,
+      ),
+    ).toEqual({
+      gameId: 7_956_713_220,
+      outcome: 'RED_WIN',
+      diagnosticCode: 'LCU_RESULT_OBSERVED',
+      durationSeconds: 725,
+      score: '0 – 0',
+    });
+  });
+
   it('rejects an unrelated or non-custom match', () => {
     expect(
       parseLeagueGameResult(
@@ -65,6 +90,24 @@ describe('League match-history result parsing', () => {
           queueId: 420,
           participants: participants([0, 0, 0, 0, 0], [0, 0, 0, 0, 0]),
           teams: [],
+        },
+        42,
+      ),
+    ).toBeNull();
+  });
+
+  it('rejects an incomplete custom result with only one participant', () => {
+    expect(
+      parseLeagueGameResult(
+        {
+          gameId: 42,
+          mapId: 11,
+          queueId: 3100,
+          participants: participants([0], []),
+          teams: [
+            { teamId: 100, win: 'Win' },
+            { teamId: 200, win: 'Fail' },
+          ],
         },
         42,
       ),

@@ -77,6 +77,57 @@ export class LcuHttpClient {
     return this.request<T>('PUT', requestPath, body);
   }
 
+  async getImageDataUrl(requestPath: string): Promise<string> {
+    if (!requestPath.startsWith('/') || requestPath.includes('://')) {
+      throw new LcuHttpError(0, 'LCU_PATH_REJECTED');
+    }
+
+    return new Promise<string>((resolve, reject) => {
+      const request = https.request(
+        {
+          hostname: '127.0.0.1',
+          port: this.connection.port,
+          path: requestPath,
+          method: 'GET',
+          auth: `riot:${this.connection.password}`,
+          rejectUnauthorized: false,
+        },
+        (response) => {
+          const chunks: Buffer[] = [];
+          let length = 0;
+          response.on('data', (chunk: Buffer) => {
+            length += chunk.length;
+            if (length > MAX_RESPONSE_BYTES) {
+              request.destroy(new Error('LCU image exceeded the safety limit'));
+              return;
+            }
+            chunks.push(chunk);
+          });
+          response.on('end', () => {
+            const status = response.statusCode ?? 0;
+            if (status < 200 || status >= 300) {
+              reject(new LcuHttpError(status, `LCU_HTTP_${status || 'NO_STATUS'}`));
+              return;
+            }
+            const contentTypeHeader = response.headers['content-type'];
+            const contentType = (Array.isArray(contentTypeHeader)
+              ? contentTypeHeader[0]
+              : contentTypeHeader
+            )?.split(';', 1)[0]?.trim().toLowerCase();
+            if (!contentType || !['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) {
+              reject(new LcuHttpError(status, 'LCU_IMAGE_CONTENT_TYPE_REJECTED'));
+              return;
+            }
+            resolve(`data:${contentType};base64,${Buffer.concat(chunks).toString('base64')}`);
+          });
+        },
+      );
+      request.setTimeout(5_000, () => request.destroy(new Error('LCU image request timed out')));
+      request.on('error', () => reject(new LcuHttpError(0, 'LCU_CONNECTION_FAILED')));
+      request.end();
+    });
+  }
+
   private async request<T>(method: 'GET' | 'POST' | 'PUT', requestPath: string, body?: unknown): Promise<T> {
     if (!requestPath.startsWith('/') || requestPath.includes('://')) {
       throw new LcuHttpError(0, 'LCU_PATH_REJECTED');

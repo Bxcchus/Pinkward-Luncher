@@ -1,9 +1,9 @@
 {
   "name": "w3c-lol-desktop",
-  "version": "0.2.3",
+  "version": "0.3.1",
   "private": true,
-  "description": "W3C-LoL Windows companion",
-  "author": "W3C-LoL Contributors",
+  "description": "Pinkward Windows companion",
+  "author": "Pinkward Contributors",
   "type": "module",
   "engines": {
     "node": "^22.13.0 || >=24.0.0",
@@ -53,7 +53,7 @@
   },
   "build": {
     "appId": "gg.w3c.lol.companion",
-    "productName": "W3C-LoL",
+    "productName": "Pinkward",
     "asar": true,
     "publish": [
       {
@@ -83,14 +83,14 @@
       ]
     },
     "nsis": {
-      "artifactName": "W3C-LoL-Setup-${version}-${arch}.${ext}",
+      "artifactName": "Pinkward-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
     "portable": {
-      "artifactName": "W3C-LoL-Portable-${version}-${arch}.${ext}"
+      "artifactName": "Pinkward-Portable-${version}-${arch}.${ext}"
     }
   }
 }

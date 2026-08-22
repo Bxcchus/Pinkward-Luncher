@@ -10,9 +10,9 @@ export function MatchTeams({ participants }: { participants: MatchParticipant[] 
           <header>
             <div>
               <span className="eyebrow">ASSIGNED TEAM</span>
-              <h3>{team} SIDE</h3>
+              <h3>{team === 'BLUE' ? 'Blue team' : 'Red team'}</h3>
             </div>
-            <span className="team-score">5 / 5</span>
+            <span className="team-score">{participants.filter((participant) => participant.team === team).length} players</span>
           </header>
           <div className="team-list">
             {participants
@@ -27,8 +27,9 @@ export function MatchTeams({ participants }: { participants: MatchParticipant[] 
                     <strong>{participant.gameName}</strong>
                     <small>#{participant.tagLine}</small>
                   </div>
+                  <span className="player-role">{participant.role}</span>
                   {participant.isCurrentPlayer && <span className="you-pill">YOU</span>}
-                  <Icon name="check" size={16} className="team-player__check" />
+                  <Icon name={participant.joined ? 'check' : 'clock'} size={16} className={participant.joined ? 'team-player__check' : 'team-player__pending'} />
                 </div>
               ))}
           </div>

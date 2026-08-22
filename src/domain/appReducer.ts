@@ -16,6 +16,10 @@ const demoFromEnvironment = import.meta.env.VITE_DEMO_MODE === 'true';
 export const initialState: AppState = {
   screen: 'LOGIN',
   player: null,
+  partyId: null,
+  partyLeaderId: null,
+  partyMembers: [],
+  partyInvitations: [],
   primaryRole: 'MID',
   secondaryRole: 'JUNGLE',
   serverStatus: demoFromEnvironment ? 'SIMULATION' : 'CONNECTING',
@@ -41,24 +45,10 @@ export const initialState: AppState = {
   duelOwner: false,
   inGameElapsedSeconds: 0,
   lastResult: null,
-  history: [
-    {
-      id: 'match-demo-previous-1',
-      playedAt: new Date(Date.now() - 86_400_000).toISOString(),
-      result: 'WIN',
-      role: 'MID',
-      durationSeconds: 1_842,
-      score: '31 – 24',
-    },
-    {
-      id: 'match-demo-previous-2',
-      playedAt: new Date(Date.now() - 172_800_000).toISOString(),
-      result: 'LOSS',
-      role: 'JUNGLE',
-      durationSeconds: 2_116,
-      score: '18 – 29',
-    },
-  ],
+  history: [],
+  stats: null,
+  chatMessages: [],
+  unreadChatMessages: 0,
   settings: {
     duelMode: true,
     demoMode: demoFromEnvironment,
@@ -122,7 +112,13 @@ function updateJoined(participants: MatchParticipant[], playerId: string): Match
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case 'LOGIN_SUCCESS':
-      return { ...state, player: action.player, screen: 'HOME', error: null };
+      return {
+        ...state,
+        player: action.player,
+        history: action.history,
+        screen: 'HOME',
+        error: null,
+      };
     case 'LOGOUT':
       return {
         ...initialState,
@@ -132,7 +128,49 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       };
     case 'NAVIGATE':
       if (activeScreens.has(state.screen)) return state;
-      return { ...state, screen: action.screen, error: null };
+      return {
+        ...state,
+        screen: action.screen,
+        unreadChatMessages: action.screen === 'CHAT' ? 0 : state.unreadChatMessages,
+        error: null,
+      };
+    case 'ADD_PARTY_MEMBER':
+      if (
+        state.partyMembers.length >= 4 ||
+        state.partyMembers.some((member) => member.id === action.member.id)
+      ) return state;
+      return { ...state, partyMembers: [...state.partyMembers, action.member] };
+    case 'REMOVE_PARTY_MEMBER':
+      return {
+        ...state,
+        partyMembers: state.partyMembers.filter((member) => member.id !== action.memberId),
+      };
+    case 'SET_PARTY_CONTEXT':
+      return {
+        ...state,
+        partyId: action.context.partyId,
+        partyLeaderId: action.context.leaderId,
+        partyMembers: action.context.members
+          .filter((member) => member.playerId !== state.player?.id)
+          .map((member) => ({
+            id: member.playerId,
+            gameName: member.gameName,
+            tagLine: member.tagLine,
+            status: member.joined ? 'JOINED' as const : 'INVITED' as const,
+            leader: member.leader,
+            primaryRole: member.primaryRole,
+            secondaryRole: member.secondaryRole,
+          })),
+        partyInvitations: action.context.invitations,
+      };
+    case 'RECEIVE_PARTY_INVITATION':
+      if (state.partyInvitations.some((invitation) => invitation.id === action.invitation.id)) {
+        return state;
+      }
+      return {
+        ...state,
+        partyInvitations: [action.invitation, ...state.partyInvitations],
+      };
     case 'SET_PRIMARY_ROLE':
       return { ...state, ...swapDistinctRoles(state, action.role, 'primaryRole') };
     case 'SET_SECONDARY_ROLE':
@@ -304,6 +342,25 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         lifecycle: 'FINISHED',
         lastResult: action.result,
         history: [action.result, ...state.history.filter((item) => item.id !== action.result.id)],
+      };
+    case 'SET_STATS':
+      return {
+        ...state,
+        stats: action.stats,
+        history: action.stats.matches,
+      };
+    case 'SET_CHAT_MESSAGES':
+      return {
+        ...state,
+        chatMessages: action.messages.slice(-100),
+        unreadChatMessages: state.screen === 'CHAT' ? 0 : state.unreadChatMessages,
+      };
+    case 'RECEIVE_CHAT_MESSAGE':
+      if (state.chatMessages.some((message) => message.id === action.message.id)) return state;
+      return {
+        ...state,
+        chatMessages: [...state.chatMessages, action.message].slice(-100),
+        unreadChatMessages: state.screen === 'CHAT' ? 0 : Math.min(99, state.unreadChatMessages + 1),
       };
     case 'PLAY_AGAIN':
       return {

@@ -1,4 +1,4 @@
-import type { DuelSnapshot, PlayerIdentity, Role } from '../domain/types';
+import type { ChatMessage, DuelSnapshot, PartyContext, PlayerIdentity, PlayerStats, Role } from '../domain/types';
 import { runtimeConfig } from './runtimeConfig';
 
 interface SecureLoginRequest {
@@ -16,6 +16,13 @@ interface AuthResponse {
 interface QueueRequest {
   primaryRole: Role;
   secondaryRole: Role;
+}
+
+interface DuelFinishRequest {
+  outcome: 'BLUE_WIN' | 'RED_WIN' | 'UNKNOWN';
+  durationSeconds?: number;
+  score?: string;
+  completedAt: string;
 }
 
 export class ApiError extends Error {
@@ -45,6 +52,40 @@ export class W3cApiClient {
 
   leaveQueue(): Promise<void> {
     return this.request<void>('/api/v1/queue/me', { method: 'DELETE' });
+  }
+
+  getParty(): Promise<PartyContext> {
+    return this.request<PartyContext>('/api/v1/parties/me', { method: 'GET' });
+  }
+
+  inviteToParty(gameName: string, tagLine: string): Promise<PartyContext> {
+    return this.request<PartyContext>('/api/v1/parties/invitations', {
+      method: 'POST',
+      body: JSON.stringify({ gameName, tagLine }),
+    });
+  }
+
+  acceptPartyInvitation(invitationId: string): Promise<PartyContext> {
+    return this.request<PartyContext>(`/api/v1/parties/invitations/${encodeURIComponent(invitationId)}/accept`, { method: 'POST' });
+  }
+
+  declinePartyInvitation(invitationId: string): Promise<PartyContext> {
+    return this.request<PartyContext>(`/api/v1/parties/invitations/${encodeURIComponent(invitationId)}/decline`, { method: 'POST' });
+  }
+
+  updatePartyRoles(primaryRole: Role, secondaryRole: Role): Promise<PartyContext> {
+    return this.request<PartyContext>('/api/v1/parties/me/roles', {
+      method: 'PUT',
+      body: JSON.stringify({ primaryRole, secondaryRole }),
+    });
+  }
+
+  removePartyMember(playerId: string): Promise<PartyContext> {
+    return this.request<PartyContext>(`/api/v1/parties/members/${encodeURIComponent(playerId)}`, { method: 'DELETE' });
+  }
+
+  leaveParty(): Promise<PartyContext> {
+    return this.request<PartyContext>('/api/v1/parties/me', { method: 'DELETE' });
   }
 
   joinDuelQueue(request: QueueRequest): Promise<DuelSnapshot> {
@@ -77,9 +118,10 @@ export class W3cApiClient {
     return this.duelAction(matchId, 'started');
   }
 
-  finishDuel(matchId: string): Promise<void> {
+  finishDuel(matchId: string, result?: DuelFinishRequest): Promise<void> {
     return this.request<void>(`/api/v1/duel/${encodeURIComponent(matchId)}/finished`, {
       method: 'POST',
+      ...(result ? { body: JSON.stringify(result) } : {}),
     });
   }
 
@@ -97,6 +139,21 @@ export class W3cApiClient {
 
   heartbeat(): Promise<void> {
     return this.request<void>('/api/v1/presence/heartbeat', { method: 'POST' });
+  }
+
+  getMyStats(): Promise<PlayerStats> {
+    return this.request<PlayerStats>('/api/v1/stats/me', { method: 'GET' });
+  }
+
+  getChatMessages(): Promise<ChatMessage[]> {
+    return this.request<ChatMessage[]>('/api/v1/chat/messages', { method: 'GET' });
+  }
+
+  sendChatMessage(content: string): Promise<ChatMessage> {
+    return this.request<ChatMessage>('/api/v1/chat/messages', {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    });
   }
 
   getToken(): string | null {

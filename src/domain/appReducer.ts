@@ -329,7 +329,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
                 action.lifecycle === 'LOBBY_VALID' ||
                 action.lifecycle === 'STARTING' ||
                 action.lifecycle === 'CHAMP_SELECT' ||
-                action.lifecycle === 'IN_GAME'
+                action.lifecycle === 'IN_GAME' ||
+                action.lifecycle === 'DUEL_ENDING'
               ? 'MATCH_OVERVIEW'
               : state.screen,
       };

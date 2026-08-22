@@ -310,6 +310,7 @@ const lifecycleCopy: Record<MatchLifecycle, { title: string; detail: string }> =
   STARTING: { title: 'Starting game', detail: 'All conditions are satisfied' },
   CHAMP_SELECT: { title: 'Champion select', detail: 'Continue in League Client' },
   IN_GAME: { title: 'Game in progress', detail: 'Result detection is active' },
+  DUEL_ENDING: { title: 'First blood confirmed', detail: 'Waiting for Riot to close the custom game' },
   POST_GAME: { title: 'Post game', detail: 'Collecting match result' },
   FINISHED: { title: 'Finished', detail: 'Result recorded' },
 };
@@ -317,6 +318,19 @@ const lifecycleCopy: Record<MatchLifecycle, { title: string; detail: string }> =
 export function MatchOverviewScreen({ controller }: { controller: AppController }) {
   const { state } = controller;
   const lifecycle = state.lifecycle ?? 'LOBBY_VALIDATING';
+  if (lifecycle === 'DUEL_ENDING') {
+    return (
+      <div className="screen">
+        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Pinkward recorded first blood and is waiting for Riot to release both players." />
+        <section className="panel ingame-dashboard">
+          <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>PLEASE WAIT</strong><span>Exit guard active</span></div>
+          <Alert tone="info" title="Do not press Reconnect">
+            League can briefly show a Reconnect button after both game processes close. Pinkward will keep the duel closed until Riot confirms that the custom game has ended.
+          </Alert>
+        </section>
+      </div>
+    );
+  }
   if (lifecycle === 'IN_GAME') {
     const current = state.participants.find((participant) => participant.isCurrentPlayer);
     return (

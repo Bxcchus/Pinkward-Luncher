@@ -38,6 +38,7 @@ export type MatchLifecycle =
   | 'STARTING'
   | 'CHAMP_SELECT'
   | 'IN_GAME'
+  | 'DUEL_ENDING'
   | 'POST_GAME'
   | 'FINISHED';
 

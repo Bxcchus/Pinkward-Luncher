@@ -550,9 +550,46 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
           ['/IM', 'League of Legends.exe', '/T', '/F'],
           { windowsHide: true, timeout: 5_000, maxBuffer: 64 * 1024 },
         );
-        return commandResult('SUCCESS', 'DUEL_GAME_PROCESS_EXITED', 'CONNECTED', true);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          await delay(250);
+          const observedPhase = await this.phase(client).catch(() => 'None');
+          if (observedPhase === 'Reconnect') {
+            // A killed game process initially looks like a connection loss to League.
+            // Ask LCU to abandon that reconnect flow while the game server notices
+            // that both duel participants have left.
+            if (attempt % 4 === 0) {
+              await client.post<unknown>('/lol-gameflow/v1/early-exit').catch(() => undefined);
+              await client.post<boolean>('/lol-gameflow/v1/session/request-lobby').catch(() => false);
+            }
+            continue;
+          }
+          if (observedPhase !== 'InProgress') {
+            return commandResult(
+              'SUCCESS',
+              'LCU_DUEL_GAME_EXITED',
+              mapGameflowState(observedPhase),
+              true,
+            );
+          }
+        }
+        return commandResult('UNKNOWN', 'LCU_DUEL_RECONNECT_PENDING', 'IN_GAME', true);
       } catch {
         const observedPhase = await this.phase(client).catch(() => 'None');
+        if (observedPhase === 'Reconnect') {
+          await client.post<unknown>('/lol-gameflow/v1/early-exit').catch(() => undefined);
+          await client.post<boolean>('/lol-gameflow/v1/session/request-lobby').catch(() => false);
+          await delay(250);
+          const settledPhase = await this.phase(client).catch(() => 'None');
+          if (settledPhase !== 'InProgress' && settledPhase !== 'Reconnect') {
+            return commandResult(
+              'SUCCESS',
+              'LCU_DUEL_GAME_EXITED',
+              mapGameflowState(settledPhase),
+              true,
+            );
+          }
+          return commandResult('UNKNOWN', 'LCU_DUEL_RECONNECT_PENDING', 'IN_GAME', true);
+        }
         if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
           return commandResult(
             'SUCCESS',

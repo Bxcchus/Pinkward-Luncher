@@ -43,6 +43,14 @@ function desktopNotification(title: string, body: string, enabled: boolean): voi
   }
 }
 
+interface PendingDuelCompletion {
+  result: MatchSummary;
+  notificationTitle: string;
+  notificationBody: string;
+  acknowledgeServer: boolean;
+  inactivePolls: number;
+}
+
 export interface AppController {
   state: AppState;
   login(gameName: string, tagLine: string, region: string): Promise<void>;
@@ -96,6 +104,9 @@ export function useAppController(): AppController {
   const duelOperationsRef = useRef(new Set<string>());
   const duelFirstBloodChecksInFlightRef = useRef(new Set<string>());
   const reportedDuelFirstBloodRef = useRef(new Set<string>());
+  const pendingDuelCompletionsRef = useRef(new Map<string, PendingDuelCompletion>());
+  const duelExitGuardInFlightRef = useRef(new Set<string>());
+  const duelCompletionInFlightRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
@@ -167,6 +178,61 @@ export function useAppController(): AppController {
         }
         const matchId = current.currentMatchId;
         if ((current.localBotMatch || current.duelMatch) && current.player && matchId) {
+          const pendingDuel = pendingDuelCompletionsRef.current.get(matchId);
+          if (current.duelMatch && pendingDuel) {
+            if (current.lifecycle !== 'DUEL_ENDING') {
+              dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
+            }
+            if (status.state === 'IN_GAME') {
+              pendingDuel.inactivePolls = 0;
+              if (window.w3c && !duelExitGuardInFlightRef.current.has(matchId)) {
+                duelExitGuardInFlightRef.current.add(matchId);
+                void window.w3c.league.exitDuelGame()
+                  .catch(() => undefined)
+                  .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
+              }
+              return;
+            }
+
+            const riotReleasedGame =
+              status.state === 'CONNECTED' ||
+              status.state === 'LOBBY' ||
+              status.state === 'NOT_RUNNING';
+            if (!riotReleasedGame) return;
+
+            pendingDuel.inactivePolls += 1;
+            if (pendingDuel.inactivePolls < 2 || duelCompletionInFlightRef.current.has(matchId)) {
+              return;
+            }
+            duelCompletionInFlightRef.current.add(matchId);
+            try {
+              if (pendingDuel.acknowledgeServer) {
+                await api.finishDuel(matchId);
+              }
+              dispatch({ type: 'GAME_ENDED', result: pendingDuel.result });
+              desktopNotification(
+                pendingDuel.notificationTitle,
+                pendingDuel.notificationBody,
+                current.settings.desktopNotifications,
+              );
+              pendingDuelCompletionsRef.current.delete(matchId);
+              inactiveGameflowPollsRef.current.delete(matchId);
+              activeGameIdRef.current = null;
+              await api.getMyStats()
+                .then((stats) => dispatch({ type: 'SET_STATS', stats }))
+                .catch(() => undefined);
+            } catch {
+              pendingDuel.inactivePolls = 0;
+              dispatch({
+                type: 'SHOW_TOAST',
+                message: 'Riot closed the game, but Pinkward is still synchronizing the duel result.',
+              });
+            } finally {
+              duelCompletionInFlightRef.current.delete(matchId);
+            }
+            return;
+          }
+
           if (status.state === 'CHAMP_SELECT' || status.state === 'IN_GAME') {
             inactiveGameflowPollsRef.current.delete(matchId);
           }
@@ -212,17 +278,22 @@ export function useAppController(): AppController {
                 const score = winningTeam === 'BLUE' ? '1 — 0' : '0 — 1';
                 const completedAt = new Date().toISOString();
 
-                const [savedResult, exitedGame] = await Promise.allSettled([
-                  api.finishDuel(matchId, {
+                try {
+                  await api.finishDuel(matchId, {
                     outcome,
                     durationSeconds,
                     score,
                     completedAt,
-                  }),
-                  window.w3c.league.exitDuelGame(),
-                ]);
-                dispatch({
-                  type: 'GAME_ENDED',
+                  });
+                } catch {
+                  reportedDuelFirstBloodRef.current.delete(matchId);
+                  dispatch({
+                    type: 'SET_ERROR',
+                    message: 'First blood was detected, but the server could not save the result.',
+                  });
+                  return;
+                }
+                pendingDuelCompletionsRef.current.set(matchId, {
                   result: {
                     id: matchId,
                     playedAt: completedAt,
@@ -231,32 +302,25 @@ export function useAppController(): AppController {
                     durationSeconds,
                     score,
                   },
+                  notificationTitle: firstBlood.localPlayerWon ? '1v1 victory' : '1v1 defeat',
+                  notificationBody: `${firstBlood.killerName} scored first blood. Waiting for Riot to close the custom game.`,
+                  acknowledgeServer: false,
+                  inactivePolls: 0,
                 });
+                dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
                 desktopNotification(
-                  firstBlood.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  `${firstBlood.killerName} scored first blood. The duel is over.`,
+                  'First blood confirmed',
+                  'Do not press Reconnect. Pinkward is closing the custom game for both players.',
                   current.settings.desktopNotifications,
                 );
-                inactiveGameflowPollsRef.current.delete(matchId);
-                activeGameIdRef.current = null;
-
-                if (savedResult.status === 'fulfilled') {
-                  await api.getMyStats()
-                    .then((stats) => dispatch({ type: 'SET_STATS', stats }))
-                    .catch(() => undefined);
-                } else {
-                  dispatch({
-                    type: 'SET_ERROR',
-                    message: 'First blood was detected, but the server could not save the result.',
-                  });
-                }
-                if (
-                  exitedGame.status === 'rejected' ||
-                  !exitedGame.value.successful
-                ) {
+                duelExitGuardInFlightRef.current.add(matchId);
+                const exitedGame = await window.w3c.league.exitDuelGame()
+                  .catch(() => null)
+                  .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
+                if (!exitedGame?.successful) {
                   dispatch({
                     type: 'SHOW_TOAST',
-                    message: 'The duel is finished; close the League game window manually.',
+                    message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
                   });
                 }
                 return;
@@ -764,13 +828,7 @@ export function useAppController(): AppController {
           const durationSeconds = snapshot.result!.durationSeconds
             ?? stateRef.current.inGameElapsedSeconds;
           const score = snapshot.result!.score ?? '1 — 0';
-          const [acknowledged, exitedGame] = await Promise.allSettled([
-            api.finishDuel(matchId),
-            window.w3c!.league.exitDuelGame(),
-          ]);
-
-          dispatch({
-            type: 'GAME_ENDED',
+          pendingDuelCompletionsRef.current.set(matchId, {
             result: {
               id: matchId,
               playedAt: snapshot.result!.completedAt,
@@ -781,28 +839,25 @@ export function useAppController(): AppController {
               durationSeconds,
               score,
             },
+            notificationTitle: localWon ? '1v1 victory' : '1v1 defeat',
+            notificationBody: 'Riot released the custom game. The server-confirmed result is recorded.',
+            acknowledgeServer: true,
+            inactivePolls: 0,
           });
+          dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
           desktopNotification(
-            localWon ? '1v1 victory' : '1v1 defeat',
-            'The server confirmed first blood. The duel is over.',
+            'First blood confirmed',
+            'Do not press Reconnect. Pinkward is closing the custom game for both players.',
             stateRef.current.settings.desktopNotifications,
           );
-          inactiveGameflowPollsRef.current.delete(matchId);
-          activeGameIdRef.current = null;
-          await api.getMyStats()
-            .then((stats) => dispatch({ type: 'SET_STATS', stats }))
-            .catch(() => undefined);
-
-          if (acknowledged.status === 'rejected') {
+          duelExitGuardInFlightRef.current.add(matchId);
+          const exitedGame = await window.w3c!.league.exitDuelGame()
+            .catch(() => null)
+            .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
+          if (!exitedGame?.successful) {
             dispatch({
               type: 'SHOW_TOAST',
-              message: 'The result is saved, but Pinkward could not acknowledge the finished duel.',
-            });
-          }
-          if (exitedGame.status === 'rejected' || !exitedGame.value.successful) {
-            dispatch({
-              type: 'SHOW_TOAST',
-              message: 'The duel is finished; close the League game window manually.',
+              message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
             });
           }
         });

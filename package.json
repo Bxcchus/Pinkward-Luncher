@@ -1,6 +1,6 @@
 {
   "name": "w3c-lol-desktop",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "private": true,
   "description": "Pinkward Windows companion",
   "author": "Pinkward Contributors",
@@ -75,12 +75,19 @@
       {
         "from": "update-config.json",
         "to": "update-config.json"
+      },
+      {
+        "from": "src/assets/pinkward-logo-final.png",
+        "to": "pinkward-logo.png"
       }
     ],
     "win": {
-      "signingHashAlgorithms": [
-        "sha256"
-      ],
+      "icon": "src/assets/pinkward-logo-final.png",
+      "signtoolOptions": {
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      },
       "target": [
         "nsis",
         "portable"

@@ -1,4 +1,4 @@
-import appLogoUrl from '../assets/app-logo.png';
+import appLogoUrl from '../assets/pinkward-logo-final.png';
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (

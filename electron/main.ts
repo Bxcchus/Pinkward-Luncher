@@ -183,6 +183,10 @@ async function saveLeagueLocation(directory: string): Promise<void> {
 }
 
 function createWindow(): void {
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'pinkward-logo.png')
+    : path.join(currentDir, '..', 'src', 'assets', 'pinkward-logo-final.png');
+
   const window = new BrowserWindow({
     width: 1440,
     height: 900,
@@ -190,6 +194,7 @@ function createWindow(): void {
     minHeight: 720,
     backgroundColor: '#070b10',
     title: 'Pinkward',
+    icon: iconPath,
     frame: false,
     autoHideMenuBar: true,
     show: false,

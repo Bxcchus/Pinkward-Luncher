@@ -14,7 +14,7 @@ describe('League match-history result parsing', () => {
           gameId: 42,
           gameDuration: 1_764,
           mapId: 11,
-          queueId: 3100,
+          queueId: 3130,
           participants: participants([3, 5, 8, 7, 9], [2, 4, 5, 6, 8]),
           teams: [
             { teamId: 100, win: 'Win' },
@@ -39,7 +39,7 @@ describe('League match-history result parsing', () => {
           gameId: 43,
           gameDuration: 47,
           mapId: 11,
-          queueId: 3100,
+          queueId: 3130,
           participants: participants([0, 0, 0, 0, 0], [0, 0, 0, 0, 0]),
           teams: [
             { teamId: 100, win: 'Fail' },
@@ -62,8 +62,8 @@ describe('League match-history result parsing', () => {
         {
           gameId: 7_956_713_220,
           gameDuration: 725,
-          mapId: 11,
-          queueId: 3100,
+          mapId: 12,
+          queueId: 3200,
           participants: participants([0], [0]),
           teams: [
             { teamId: 100, win: 'Fail' },
@@ -102,7 +102,7 @@ describe('League match-history result parsing', () => {
         {
           gameId: 42,
           mapId: 11,
-          queueId: 3100,
+          queueId: 3130,
           participants: participants([0], []),
           teams: [
             { teamId: 100, win: 'Win' },

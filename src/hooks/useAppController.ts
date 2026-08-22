@@ -751,8 +751,8 @@ export function useAppController(): AppController {
           const result = await window.w3c!.league.createCustomLobby({
             ...credentials,
             region: player.region,
-            map: 'SUMMONERS_RIFT',
             expectedPlayers: 2,
+            ruleset: 'DUEL_ARAM',
           });
           if (!result.successful || result.status !== 'SUCCESS') {
             dispatch({
@@ -986,8 +986,8 @@ export function useAppController(): AppController {
     void window.w3c.league.createBotLobby({
       ...lobby,
       region: state.player.region,
-      map: 'SUMMONERS_RIFT',
       expectedPlayers: 10,
+      ruleset: 'BOT_TEST_5V5',
       playerRole: state.primaryRole,
       secondaryRole: state.secondaryRole,
     }).then((result) => {

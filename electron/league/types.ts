@@ -50,10 +50,15 @@ export interface LobbyCredentials {
   partyId?: string;
 }
 
+export type CustomLobbyRuleset =
+  | 'DUEL_ARAM'
+  | 'TOURNAMENT_DRAFT_5V5'
+  | 'BOT_TEST_5V5';
+
 export interface CustomLobbyConfiguration extends LobbyCredentials {
   region: string;
-  map?: string;
   expectedPlayers: number;
+  ruleset: CustomLobbyRuleset;
 }
 
 export type BotFillRole = 'TOP' | 'JUNGLE' | 'MID' | 'ADC' | 'SUPPORT';

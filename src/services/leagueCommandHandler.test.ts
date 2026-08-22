@@ -96,6 +96,7 @@ describe('League command acknowledgements', () => {
       diagnosticCode: 'OK',
       externalLobbyId: 'external-1',
     };
+    const league = adapter(success);
     const result = await handleLeagueCommand(
       {
         type: 'CREATE_LOBBY',
@@ -109,11 +110,15 @@ describe('League command acknowledgements', () => {
           },
         },
       },
-      adapter(success),
+      league,
       fixedTime,
     );
 
     expect(result.acknowledgement.type).toBe('LOBBY_CREATED');
     expect(result.fallbackRequired).toBe(false);
+    expect(league.createCustomLobby).toHaveBeenCalledWith(expect.objectContaining({
+      expectedPlayers: 10,
+      ruleset: 'TOURNAMENT_DRAFT_5V5',
+    }));
   });
 });

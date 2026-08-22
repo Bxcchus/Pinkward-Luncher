@@ -19,6 +19,7 @@ import type {
   BotFillRole,
   BotLobbyConfiguration,
   CustomLobbyConfiguration,
+  CustomLobbyRuleset,
   DuelFirstBloodSnapshot,
   LeagueGameResultSnapshot,
   LeagueIdentitySnapshot,
@@ -29,8 +30,37 @@ import type {
 
 const execFileAsync = promisify(execFile);
 
-const CUSTOM_QUEUE_ID = 3100;
-const SUMMONERS_RIFT_MAP_ID = 11;
+interface CustomLobbyPreset {
+  queueId: number;
+  mapId: number;
+  gameMode: 'CLASSIC' | 'ARAM';
+  expectedPlayers: 2 | 10;
+  teamSize: 1 | 5;
+}
+
+const CUSTOM_LOBBY_PRESETS: Record<CustomLobbyRuleset, CustomLobbyPreset> = {
+  DUEL_ARAM: {
+    queueId: 3200,
+    mapId: 12,
+    gameMode: 'ARAM',
+    expectedPlayers: 2,
+    teamSize: 1,
+  },
+  TOURNAMENT_DRAFT_5V5: {
+    queueId: 3130,
+    mapId: 11,
+    gameMode: 'CLASSIC',
+    expectedPlayers: 10,
+    teamSize: 5,
+  },
+  BOT_TEST_5V5: {
+    queueId: 3100,
+    mapId: 11,
+    gameMode: 'CLASSIC',
+    expectedPlayers: 10,
+    teamSize: 5,
+  },
+};
 const REQUIRED_FUNCTIONS = [
   'GetLolGameflowV1GameflowPhase',
   'GetLolGameflowV1Session',
@@ -120,6 +150,10 @@ export function duelTeamBalanceAction(
   if (teamOneCount === 2 && teamTwoCount === 0) return 'TEAM2';
   if (teamOneCount === 0 && teamTwoCount === 2) return 'TEAM1';
   return 'INVALID';
+}
+
+export function customLobbyPreset(ruleset: CustomLobbyRuleset): CustomLobbyPreset {
+  return CUSTOM_LOBBY_PRESETS[ruleset];
 }
 
 const commandResult = (
@@ -238,11 +272,12 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
   }
 
   async createCustomLobby(configuration: CustomLobbyConfiguration): Promise<AdapterCommandResult> {
+    const preset = CUSTOM_LOBBY_PRESETS[configuration.ruleset];
     if (
       !configuration.name.trim() ||
       !configuration.password ||
-      (configuration.expectedPlayers !== 2 && configuration.expectedPlayers !== 10) ||
-      (configuration.map && configuration.map !== 'SUMMONERS_RIFT')
+      !preset ||
+      configuration.expectedPlayers !== preset.expectedPlayers
     ) {
       return commandResult('FAILED', 'LCU_CREATE_CONFIGURATION_REJECTED', 'UNKNOWN', false);
     }
@@ -262,17 +297,18 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
       }
 
       const [queue, catalog] = await Promise.all([
-        client.get<QueueDefinition>(`/lol-game-queues/v1/queues/${CUSTOM_QUEUE_ID}`),
+        client.get<QueueDefinition>(`/lol-game-queues/v1/queues/${preset.queueId}`),
         client.get<CustomQueueCatalog>('/lol-game-queues/v1/custom'),
       ]);
       const subcategory = catalog.subcategories.find(
         (candidate) =>
-          candidate.mapId === SUMMONERS_RIFT_MAP_ID && candidate.gameMode === queue.gameMode,
+          candidate.mapId === preset.mapId && candidate.gameMode === preset.gameMode,
       );
       const mutator = subcategory?.mutators.find((candidate) => candidate.id === queue.id);
       if (
-        queue.id !== CUSTOM_QUEUE_ID ||
-        queue.mapId !== SUMMONERS_RIFT_MAP_ID ||
+        queue.id !== preset.queueId ||
+        queue.mapId !== preset.mapId ||
+        queue.gameMode !== preset.gameMode ||
         queue.numPlayersPerTeam !== 5 ||
         !subcategory ||
         !mutator
@@ -291,7 +327,7 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
             mutators: mutator,
             gameTypeConfig: queue.gameTypeConfig,
             spectatorPolicy: 'AllAllowed',
-            teamSize: configuration.expectedPlayers / 2,
+            teamSize: preset.teamSize,
             maxPlayerCount: configuration.expectedPlayers,
             tournamentGameMode: '',
             tournamentPassbackUrl: '',

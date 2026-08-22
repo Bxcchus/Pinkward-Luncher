@@ -34,13 +34,13 @@ declare global {
         getDuelFirstBlood(): Promise<LeagueDuelFirstBlood | null>;
         createCustomLobby(configuration: LobbyCredentials & {
           region: string;
-          map?: string;
           expectedPlayers: number;
+          ruleset: 'DUEL_ARAM' | 'TOURNAMENT_DRAFT_5V5' | 'BOT_TEST_5V5';
         }): Promise<AdapterCommandResult>;
         createBotLobby(configuration: LobbyCredentials & {
           region: string;
-          map?: string;
           expectedPlayers: number;
+          ruleset: 'BOT_TEST_5V5';
           playerRole: import('./domain/types').Role;
           secondaryRole: import('./domain/types').Role;
         }): Promise<AdapterCommandResult>;

@@ -19,6 +19,12 @@ interface MatchHistoryGame {
   teams?: MatchHistoryTeam[];
 }
 
+const SUPPORTED_CUSTOM_QUEUES = new Map<number, number>([
+  [3100, 11], // Summoner's Rift blind pick, retained for local bot tests.
+  [3130, 11], // Summoner's Rift tournament draft.
+  [3200, 12], // Howling Abyss blind pick for Pinkward duels.
+]);
+
 const teamWon = (team: MatchHistoryTeam | undefined): boolean =>
   team?.win?.toLowerCase() === 'win';
 
@@ -39,8 +45,8 @@ export function parseLeagueGameResult(
   const gameParticipants = game.participants;
   if (
     game.gameId !== expectedGameId ||
-    game.queueId !== 3100 ||
-    game.mapId !== 11 ||
+    typeof game.queueId !== 'number' ||
+    SUPPORTED_CUSTOM_QUEUES.get(game.queueId) !== game.mapId ||
     !Array.isArray(gameParticipants) ||
     (gameParticipants.length !== 2 && gameParticipants.length !== 10) ||
     !Array.isArray(game.teams)

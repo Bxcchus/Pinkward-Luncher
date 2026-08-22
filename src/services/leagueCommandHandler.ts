@@ -18,6 +18,7 @@ export interface LeagueAdapterResult {
 interface CustomLobbyRequest extends LobbyCredentials {
   region: string;
   expectedPlayers: number;
+  ruleset: 'TOURNAMENT_DRAFT_5V5';
 }
 
 export interface LeagueCommandAdapter {
@@ -89,6 +90,7 @@ export async function handleLeagueCommand(
                 ...lobby,
                 region: configuration.region,
                 expectedPlayers: configuration.maximumPlayers,
+                ruleset: 'TOURNAMENT_DRAFT_5V5',
               })
           : undefined,
       );

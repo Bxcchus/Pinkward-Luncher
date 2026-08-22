@@ -8,8 +8,8 @@ interface LobbyCredentials {
 
 interface CustomLobbyConfiguration extends LobbyCredentials {
   region: string;
-  map?: string;
   expectedPlayers: number;
+  ruleset: 'DUEL_ARAM' | 'TOURNAMENT_DRAFT_5V5' | 'BOT_TEST_5V5';
 }
 
 interface BotLobbyConfiguration extends CustomLobbyConfiguration {

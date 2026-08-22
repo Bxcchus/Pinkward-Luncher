@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { duelTeamBalanceAction, isManagedTestLobbyName } from './LocalLeagueClientAdapter.js';
+import {
+  customLobbyPreset,
+  duelTeamBalanceAction,
+  isManagedTestLobbyName,
+} from './LocalLeagueClientAdapter.js';
 
 describe('managed custom lobby names', () => {
   it('accepts current Pinkward duel and bot lobbies', () => {
@@ -20,5 +24,22 @@ describe('managed custom lobby names', () => {
     expect(duelTeamBalanceAction(0, 2)).toBe('TEAM1');
     expect(duelTeamBalanceAction(1, 0)).toBe('INVALID');
     expect(duelTeamBalanceAction(2, 1)).toBe('INVALID');
+  });
+
+  it('uses ARAM for duels and tournament draft on Summoner’s Rift for 5v5', () => {
+    expect(customLobbyPreset('DUEL_ARAM')).toMatchObject({
+      queueId: 3200,
+      mapId: 12,
+      gameMode: 'ARAM',
+      expectedPlayers: 2,
+      teamSize: 1,
+    });
+    expect(customLobbyPreset('TOURNAMENT_DRAFT_5V5')).toMatchObject({
+      queueId: 3130,
+      mapId: 11,
+      gameMode: 'CLASSIC',
+      expectedPlayers: 10,
+      teamSize: 5,
+    });
   });
 });

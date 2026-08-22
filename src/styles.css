@@ -271,7 +271,7 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .brand__type small { margin-top: 1px; color: #70858d; font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 
 .app-shell { display: grid; width: 100%; height: 100%; grid-template-columns: var(--rail-width) minmax(0, 1fr); background: var(--bg); }
-.sidebar { position: relative; z-index: 3; display: flex; min-width: 0; flex-direction: column; padding: 10px 9px 15px; border: 1px solid var(--gold-border); border-left-color: var(--border); border-bottom-color: var(--border); background: linear-gradient(180deg, #03090d, #07151c 74%, #050d12); box-shadow: 9px 0 26px rgba(0, 0, 0, .17), inset 0 0 0 4px #03090d; }
+.sidebar { position: relative; z-index: 3; display: flex; min-width: 0; flex-direction: column; padding: 10px 9px 15px; border: 1px solid var(--gold-border); background: linear-gradient(180deg, #03090d, #07151c 74%, #050d12); box-shadow: 9px 0 26px rgba(0, 0, 0, .17), inset 0 0 0 4px #03090d; }
 .sidebar::after { position: absolute; top: 0; right: 4px; width: 1px; height: 100%; content: ""; background: linear-gradient(transparent 3%, rgba(200, 155, 60, .26) 15%, transparent 72%); }
 .sidebar > .brand { min-height: 302px; justify-content: center; flex-direction: column; gap: 22px; margin: 0 0 7px; border-bottom: 1px solid var(--border); }
 .sidebar > .brand .brand__mark { width: 164px; height: 164px; border: 0; background: transparent; box-shadow: none; clip-path: none; }
@@ -316,7 +316,7 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 
 .pulse-mini { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--accent); animation: pulse 1.5s ease-in-out infinite; }
 .workspace { display: grid; width: 100%; min-width: 0; min-height: 0; overflow: hidden; grid-template-rows: var(--topbar-height) minmax(0, 1fr); }
-.topbar { display: flex; width: 100%; min-width: 0; max-width: 100%; align-items: center; justify-content: space-between; padding: 0 0 0 17px; overflow: hidden; border: 1px solid var(--gold-border); border-top-color: var(--border); border-right-color: var(--border); background: #03090d; -webkit-app-region: drag; }
+.topbar { display: flex; width: 100%; min-width: 0; max-width: 100%; align-items: center; justify-content: space-between; padding: 0 0 0 17px; overflow: hidden; border: 1px solid var(--gold-border); background: #03090d; -webkit-app-region: drag; }
 .topbar__identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .avatar { display: grid; width: 60px; height: 60px; flex: 0 0 auto; aspect-ratio: 1; overflow: hidden; place-items: center; color: var(--gold-strong); border: 1px solid var(--gold-border); border-radius: 50%; background: radial-gradient(circle at 50% 42%, #14333d, #071117 72%); box-shadow: inset 0 0 0 4px #061018, inset 0 0 0 5px #715e34, 0 0 0 1px rgba(200, 155, 60, .16); font-family: var(--font-display); font-size: 21px; font-weight: 700; }
 .avatar--large { width: 48px; height: 48px; font-size: 17px; }
@@ -325,10 +325,10 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .topbar__identity strong { font-size: 20px; letter-spacing: .02em; }
 .topbar__identity strong span { margin-left: 3px; color: var(--text-muted); font-weight: 500; }
 .topbar__identity small { margin-top: 4px; color: var(--text-muted); font-size: 13px; }
-.region-badge { margin-left: clamp(20px, 10vw, 145px); padding: 8px 12px; color: var(--text-soft); border: 0; border-left: 1px solid var(--border); border-radius: 0; background: transparent; font-size: 15px; font-weight: 650; }
+.region-badge { margin-left: clamp(20px, 10vw, 145px); padding: 8px 12px; color: var(--text-soft); border: 0; border-left: 1px solid var(--gold-border); border-radius: 0; background: transparent; font-size: 15px; font-weight: 650; }
 .topbar__statuses { display: flex; height: 100%; align-items: center; gap: 7px; }
 .topbar__statuses > .icon-button { -webkit-app-region: no-drag; }
-.status-badge { display: flex; min-height: 58px; align-items: center; gap: 9px; padding: 0 18px; color: var(--text-muted); border: 0; border-left: 1px solid var(--border); border-radius: 0; background: transparent; font-size: 11px; }
+.status-badge { display: flex; min-height: 58px; align-items: center; gap: 9px; padding: 0 18px; color: var(--text-muted); border: 0; border-left: 1px solid var(--gold-border); border-radius: 0; background: transparent; font-size: 11px; }
 .status-badge span { color: var(--text-soft); }
 .status-badge strong { max-width: 105px; overflow: hidden; color: var(--green); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
 .status-dot { display: inline-block; width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; }
@@ -338,8 +338,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .status-dot--muted { background: #69737e; }
 .status-dot--demo { background: var(--gold); }
 .league-mark { display: inline-block; flex: 0 0 auto; overflow: visible; }
-.window-controls { display: flex; height: 100%; margin-left: 2px; border-left: 1px solid var(--border); -webkit-app-region: no-drag; }
-.window-controls button { display: grid; width: 52px; height: 100%; place-items: center; padding: 0; color: #89979d; border: 0; border-left: 1px solid rgba(120, 90, 40, .55); border-radius: 0; background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, background var(--motion-fast) ease; }
+.window-controls { display: flex; height: 100%; margin-left: 2px; border-left: 1px solid var(--gold-border); -webkit-app-region: no-drag; }
+.window-controls button { display: grid; width: 52px; height: 100%; place-items: center; padding: 0; color: #89979d; border: 0; border-left: 1px solid var(--gold-border); border-radius: 0; background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, background var(--motion-fast) ease; }
 .window-controls button:hover { color: var(--text); background: #132027; }
 .window-controls .window-control--close:hover { color: #fff; background: #8f3035; }
 .league-disconnected-banner { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 8px 25px; color: var(--warning); border-bottom: 1px solid #58482e; background: #272117; font-size: 12px; }

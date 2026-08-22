@@ -338,8 +338,8 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .status-dot--muted { background: #69737e; }
 .status-dot--demo { background: var(--gold); }
 .league-mark { display: inline-block; flex: 0 0 auto; overflow: visible; }
-.window-controls { display: flex; height: 100%; margin-left: 2px; border-left: 1px solid var(--gold-border); -webkit-app-region: no-drag; }
-.window-controls button { display: grid; width: 52px; height: 100%; place-items: center; padding: 0; color: #89979d; border: 0; border-left: 1px solid var(--gold-border); border-radius: 0; background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, background var(--motion-fast) ease; }
+.window-controls { display: flex; height: 100%; margin-left: 2px; border-left: 1px solid #263840; -webkit-app-region: no-drag; }
+.window-controls button { display: grid; width: 52px; height: 100%; place-items: center; padding: 0; color: #89979d; border: 0; border-left: 1px solid rgba(32, 51, 60, .45); border-radius: 0; background: transparent; cursor: pointer; transition: color var(--motion-fast) ease, background var(--motion-fast) ease; }
 .window-controls button:hover { color: var(--text); background: #132027; }
 .window-controls .window-control--close:hover { color: #fff; background: #8f3035; }
 .league-disconnected-banner { display: flex; min-height: 44px; align-items: center; gap: 9px; padding: 8px 25px; color: var(--warning); border-bottom: 1px solid #58482e; background: #272117; font-size: 12px; }

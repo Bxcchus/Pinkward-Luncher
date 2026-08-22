@@ -17,6 +17,14 @@ interface AdapterCommandResult {
 }
 
 declare global {
+  interface AppUpdateSnapshot {
+    status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'DOWNLOADING' | 'READY' | 'ERROR';
+    currentVersion: string;
+    availableVersion?: string;
+    progressPercent?: number;
+    message: string;
+  }
+
   interface Window {
     w3c?: {
       platform: string;
@@ -55,6 +63,12 @@ declare global {
           secondaryRole: import('./domain/types').Role,
         ): Promise<AdapterCommandResult>;
         openLeague(): Promise<{ opened: boolean; reason?: string }>;
+      };
+      updater: {
+        getStatus(): Promise<AppUpdateSnapshot>;
+        check(): Promise<AppUpdateSnapshot>;
+        install(): Promise<boolean>;
+        onStatus(listener: (snapshot: AppUpdateSnapshot) => void): () => void;
       };
     };
   }

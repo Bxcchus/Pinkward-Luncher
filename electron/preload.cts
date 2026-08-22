@@ -17,6 +17,14 @@ interface BotLobbyConfiguration extends CustomLobbyConfiguration {
   secondaryRole: 'TOP' | 'JUNGLE' | 'MID' | 'ADC' | 'SUPPORT';
 }
 
+interface UpdateSnapshot {
+  status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'DOWNLOADING' | 'READY' | 'ERROR';
+  currentVersion: string;
+  availableVersion?: string;
+  progressPercent?: number;
+  message: string;
+}
+
 const leagueBridge = {
   getInstallationPath: () => ipcRenderer.invoke('league:get-installation-path'),
   selectInstallationPath: () => ipcRenderer.invoke('league:select-installation-path'),
@@ -42,8 +50,20 @@ const leagueBridge = {
   openLeague: () => ipcRenderer.invoke('league:open'),
 };
 
+const updaterBridge = {
+  getStatus: (): Promise<UpdateSnapshot> => ipcRenderer.invoke('updater:get-status'),
+  check: (): Promise<UpdateSnapshot> => ipcRenderer.invoke('updater:check'),
+  install: (): Promise<boolean> => ipcRenderer.invoke('updater:install'),
+  onStatus: (listener: (snapshot: UpdateSnapshot) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, snapshot: UpdateSnapshot) => listener(snapshot);
+    ipcRenderer.on('updater:status', handler);
+    return () => ipcRenderer.removeListener('updater:status', handler);
+  },
+};
+
 contextBridge.exposeInMainWorld('w3c', {
   league: leagueBridge,
+  updater: updaterBridge,
   platform: process.platform,
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

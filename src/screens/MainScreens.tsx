@@ -8,6 +8,7 @@ import { Alert, Button, Dialog, EmptyState } from '../components/UI';
 import { LeagueMark } from '../components/LeagueMark';
 import { PartyDialog } from '../components/PartyDialog';
 import { SummonerAvatar } from '../components/SummonerAvatar';
+import { UpdateControl } from '../components/UpdateControl';
 
 const seconds = (value: number): string =>
   `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -541,9 +542,10 @@ export function SettingsScreen({ controller }: { controller: AppController }) {
           </section>
         </div>
         <aside className="panel about-panel">
-          <SectionHeader title="Pinkward Companion" detail="Version 0.3.1" />
+          <SectionHeader title="Pinkward Companion" detail="Windows desktop edition" />
           <div className="diagnostic-state"><span className={`status-icon status-icon--${state.league.running ? 'success' : 'warning'}`}><LeagueMark size={20} /></span><div><strong>{state.league.state.replaceAll('_', ' ')}</strong><small>{state.league.detail}</small></div></div>
           <Button icon="external" fullWidth onClick={() => void controller.openLeague()}>Open League</Button>
+          <UpdateControl />
           <details className="advanced-details">
             <summary>Advanced technical status</summary>
             <dl><div><dt>Installation</dt><dd>{state.league.installed ? 'Detected' : 'Unknown'}</dd></div><div><dt>Process</dt><dd>{state.league.running ? 'Running' : 'Not running'}</dd></div><div><dt>Automation</dt><dd>{state.league.automationAvailable ? 'Available' : 'Unavailable'}</dd></div><div><dt>Adapter</dt><dd>{state.league.adapterHealthy ? 'Healthy' : 'Unavailable'}</dd></div><div><dt>Observed</dt><dd>{new Date(state.league.observedAt).getFullYear() > 1970 ? new Date(state.league.observedAt).toLocaleTimeString() : 'Not yet'}</dd></div></dl>

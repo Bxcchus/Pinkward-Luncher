@@ -18,26 +18,132 @@ interface UpdateConfiguration {
   url?: unknown;
 }
 
+type UpdateStatus =
+  | 'UNAVAILABLE'
+  | 'IDLE'
+  | 'CHECKING'
+  | 'UP_TO_DATE'
+  | 'DOWNLOADING'
+  | 'READY'
+  | 'ERROR';
+
+interface UpdateSnapshot {
+  status: UpdateStatus;
+  currentVersion: string;
+  availableVersion?: string;
+  progressPercent?: number;
+  message: string;
+}
+
+let applicationUpdater: InstanceType<typeof electronUpdater.NsisUpdater> | null = null;
+let updateSnapshot: UpdateSnapshot = {
+  status: 'UNAVAILABLE',
+  currentVersion: '0.0.0',
+  message: 'Updates are available in the installed Windows edition.',
+};
+
 function leaguePreferenceFile(): string {
   return path.join(app.getPath('userData'), 'league-location.json');
 }
 
+function publishUpdateSnapshot(snapshot: UpdateSnapshot): UpdateSnapshot {
+  updateSnapshot = snapshot;
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('updater:status', snapshot);
+  }
+  return snapshot;
+}
+
+function updateStatus(
+  status: UpdateStatus,
+  message: string,
+  details: Pick<UpdateSnapshot, 'availableVersion' | 'progressPercent'> = {},
+): UpdateSnapshot {
+  return publishUpdateSnapshot({
+    status,
+    currentVersion: app.getVersion(),
+    ...details,
+    message,
+  });
+}
+
 async function configureAutomaticUpdates(): Promise<void> {
-  if (!app.isPackaged || process.env.PORTABLE_EXECUTABLE_FILE) return;
+  if (!app.isPackaged) {
+    updateStatus('UNAVAILABLE', 'Updates are available in the installed Windows edition.');
+    return;
+  }
+  if (process.env.PORTABLE_EXECUTABLE_FILE) {
+    updateStatus('UNAVAILABLE', 'Automatic updates require the installed Pinkward edition.');
+    return;
+  }
   try {
     const raw = await readFile(path.join(process.resourcesPath, 'update-config.json'), 'utf8');
     const configuration = JSON.parse(raw) as UpdateConfiguration;
-    if (configuration.enabled !== true || typeof configuration.url !== 'string') return;
+    if (configuration.enabled !== true || typeof configuration.url !== 'string') {
+      updateStatus('UNAVAILABLE', 'Updates are disabled for this Pinkward build.');
+      return;
+    }
     const updateUrl = new URL(configuration.url);
-    if (updateUrl.protocol !== 'https:') return;
+    if (updateUrl.protocol !== 'https:') {
+      updateStatus('ERROR', 'The configured update service is invalid.');
+      return;
+    }
     const { NsisUpdater } = electronUpdater;
     const updater = new NsisUpdater({ provider: 'generic', url: updateUrl.toString() });
+    applicationUpdater = updater;
     updater.autoDownload = true;
     updater.autoInstallOnAppQuit = true;
-    await updater.checkForUpdatesAndNotify();
+    updater.on('checking-for-update', () => {
+      updateStatus('CHECKING', 'Checking GitHub for a newer Pinkward release…');
+    });
+    updater.on('update-available', (info) => {
+      updateStatus('DOWNLOADING', `Downloading Pinkward ${info.version}…`, {
+        availableVersion: info.version,
+        progressPercent: 0,
+      });
+    });
+    updater.on('update-not-available', (info) => {
+      updateStatus('UP_TO_DATE', 'Pinkward is up to date.', { availableVersion: info.version });
+    });
+    updater.on('download-progress', (progress) => {
+      updateStatus('DOWNLOADING', `Downloading update · ${Math.round(progress.percent)}%`, {
+        availableVersion: updateSnapshot.availableVersion,
+        progressPercent: Math.max(0, Math.min(100, progress.percent)),
+      });
+    });
+    updater.on('update-downloaded', (info) => {
+      updateStatus('READY', `Pinkward ${info.version} is ready to install.`, {
+        availableVersion: info.version,
+        progressPercent: 100,
+      });
+    });
+    updater.on('error', () => {
+      updateStatus('ERROR', 'Unable to retrieve the latest Pinkward release from GitHub.');
+    });
+    updateStatus('IDLE', 'Check GitHub for the latest Pinkward release.');
   } catch {
-    // Update checks must never prevent the companion from starting.
+    applicationUpdater = null;
+    updateStatus('ERROR', 'Unable to configure Pinkward updates.');
   }
+}
+
+async function checkForApplicationUpdates(): Promise<UpdateSnapshot> {
+  if (!applicationUpdater) return updateSnapshot;
+  if (updateSnapshot.status === 'CHECKING' || updateSnapshot.status === 'DOWNLOADING') {
+    return updateSnapshot;
+  }
+  try {
+    await applicationUpdater.checkForUpdates();
+  } catch {
+    updateStatus('ERROR', 'Unable to retrieve the latest Pinkward release from GitHub.');
+  }
+  return updateSnapshot;
+}
+
+function installApplicationUpdate(): boolean {
+  if (!applicationUpdater || updateSnapshot.status !== 'READY') return false;
+  setImmediate(() => applicationUpdater?.quitAndInstall(false, true));
+  return true;
 }
 
 async function validLeagueDirectory(selectedDirectory: string): Promise<string | null> {
@@ -167,13 +273,17 @@ function registerIpc(): void {
     leagueAdapter.setPositionPreferences(primaryRole, secondaryRole),
   );
   ipcMain.handle('league:open', () => leagueAdapter.openLeague());
+  ipcMain.handle('updater:get-status', () => updateSnapshot);
+  ipcMain.handle('updater:check', () => checkForApplicationUpdates());
+  ipcMain.handle('updater:install', () => installApplicationUpdate());
 }
 
 app.whenReady().then(async () => {
   await loadLeagueLocation();
+  await configureAutomaticUpdates();
   registerIpc();
   createWindow();
-  void configureAutomaticUpdates();
+  void checkForApplicationUpdates();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

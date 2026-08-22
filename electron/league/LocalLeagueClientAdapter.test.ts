@@ -16,8 +16,8 @@ describe('managed custom lobby names', () => {
 
   it('switches only when both duel players are on the same League team', () => {
     expect(duelTeamBalanceAction(1, 1)).toBe('BALANCED');
-    expect(duelTeamBalanceAction(2, 0)).toBe('SWITCH_LOCAL');
-    expect(duelTeamBalanceAction(0, 2)).toBe('SWITCH_LOCAL');
+    expect(duelTeamBalanceAction(2, 0)).toBe('TEAM2');
+    expect(duelTeamBalanceAction(0, 2)).toBe('TEAM1');
     expect(duelTeamBalanceAction(1, 0)).toBe('INVALID');
     expect(duelTeamBalanceAction(2, 1)).toBe('INVALID');
   });

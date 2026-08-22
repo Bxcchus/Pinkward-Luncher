@@ -34,7 +34,6 @@ const REQUIRED_FUNCTIONS = [
   'GetLolLobbyV2LobbyMembers',
   'GetLolMatchHistoryV1GamesByGameId',
   'PostLolLobbyV1CustomGamesByIdJoin',
-  'PostLolLobbyV1LobbyCustomSwitchTeams',
   'PostLolLobbyV1LobbyCustomStartChampSelect',
   'PostLolLobbyV2Lobby',
 ] as const;
@@ -111,12 +110,10 @@ export function isManagedTestLobbyName(
 export function duelTeamBalanceAction(
   teamOneCount: number,
   teamTwoCount: number,
-): 'BALANCED' | 'SWITCH_LOCAL' | 'INVALID' {
+): 'BALANCED' | 'TEAM1' | 'TEAM2' | 'INVALID' {
   if (teamOneCount === 1 && teamTwoCount === 1) return 'BALANCED';
-  if (
-    (teamOneCount === 2 && teamTwoCount === 0) ||
-    (teamOneCount === 0 && teamTwoCount === 2)
-  ) return 'SWITCH_LOCAL';
+  if (teamOneCount === 2 && teamTwoCount === 0) return 'TEAM2';
+  if (teamOneCount === 0 && teamTwoCount === 2) return 'TEAM1';
   return 'INVALID';
 }
 
@@ -445,7 +442,7 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
         return commandResult('FAILED', 'LCU_DUEL_ROSTER_INVALID', 'LOBBY', true);
       }
 
-      await client.post<unknown>('/lol-lobby/v1/lobby/custom/switch-teams');
+      await client.post<unknown>(`/lol-lobby/v2/lobby/team/${action}`);
       for (let attempt = 0; attempt < 12; attempt += 1) {
         const updated = await this.currentLobby(client);
         if (

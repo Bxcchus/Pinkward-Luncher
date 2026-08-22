@@ -16,6 +16,7 @@ export interface LeagueClientAdapter {
   createCustomLobby(configuration: CustomLobbyConfiguration): Promise<AdapterCommandResult>;
   createBotLobby(configuration: BotLobbyConfiguration): Promise<AdapterCommandResult>;
   joinCustomLobby(credentials: LobbyCredentials): Promise<AdapterCommandResult>;
+  balanceDuelTeams(): Promise<AdapterCommandResult>;
   startGame(): Promise<AdapterCommandResult>;
   startDuelGame(): Promise<AdapterCommandResult>;
   startBotGame(): Promise<AdapterCommandResult>;

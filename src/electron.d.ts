@@ -43,6 +43,7 @@ declare global {
           secondaryRole: import('./domain/types').Role;
         }): Promise<AdapterCommandResult>;
         joinCustomLobby(credentials: LobbyCredentials): Promise<AdapterCommandResult>;
+        balanceDuelTeams(): Promise<AdapterCommandResult>;
         startGame(): Promise<AdapterCommandResult>;
         startDuelGame(): Promise<AdapterCommandResult>;
         startBotGame(): Promise<AdapterCommandResult>;

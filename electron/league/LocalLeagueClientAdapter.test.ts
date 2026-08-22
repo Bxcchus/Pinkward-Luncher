@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isManagedTestLobbyName } from './LocalLeagueClientAdapter.js';
+import { duelTeamBalanceAction, isManagedTestLobbyName } from './LocalLeagueClientAdapter.js';
 
 describe('managed custom lobby names', () => {
   it('accepts current Pinkward duel and bot lobbies', () => {
@@ -12,5 +12,13 @@ describe('managed custom lobby names', () => {
     expect(isManagedTestLobbyName('W3C-BOTS-LEGACY1', 'BOTS')).toBe(true);
     expect(isManagedTestLobbyName('FRIENDS-ROOM', 'DUEL')).toBe(false);
     expect(isManagedTestLobbyName('PINKWARD-BOTS-ABC234', 'DUEL')).toBe(false);
+  });
+
+  it('switches only when both duel players are on the same League team', () => {
+    expect(duelTeamBalanceAction(1, 1)).toBe('BALANCED');
+    expect(duelTeamBalanceAction(2, 0)).toBe('SWITCH_LOCAL');
+    expect(duelTeamBalanceAction(0, 2)).toBe('SWITCH_LOCAL');
+    expect(duelTeamBalanceAction(1, 0)).toBe('INVALID');
+    expect(duelTeamBalanceAction(2, 1)).toBe('INVALID');
   });
 });

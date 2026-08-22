@@ -29,6 +29,7 @@ const leagueBridge = {
     ipcRenderer.invoke('league:create-bot-lobby', configuration),
   joinCustomLobby: (credentials: LobbyCredentials) =>
     ipcRenderer.invoke('league:join-custom-lobby', credentials),
+  balanceDuelTeams: () => ipcRenderer.invoke('league:balance-duel-teams'),
   startGame: () => ipcRenderer.invoke('league:start-game'),
   startDuelGame: () => ipcRenderer.invoke('league:start-duel-game'),
   startBotGame: () => ipcRenderer.invoke('league:start-bot-game'),

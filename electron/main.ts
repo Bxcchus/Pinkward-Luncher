@@ -157,6 +157,7 @@ function registerIpc(): void {
   ipcMain.handle('league:join-custom-lobby', (_event, credentials: LobbyCredentials) =>
     leagueAdapter.joinCustomLobby(credentials),
   );
+  ipcMain.handle('league:balance-duel-teams', () => leagueAdapter.balanceDuelTeams());
   ipcMain.handle('league:start-game', () => leagueAdapter.startGame());
   ipcMain.handle('league:start-duel-game', () => leagueAdapter.startDuelGame());
   ipcMain.handle('league:start-bot-game', () => leagueAdapter.startBotGame());

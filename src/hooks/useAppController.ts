@@ -711,6 +711,14 @@ export function useAppController(): AppController {
               }
               throw new Error(result.diagnosticCode);
             }
+            const teamBalance = await window.w3c!.league.balanceDuelTeams();
+            if (!teamBalance.successful || teamBalance.status !== 'SUCCESS') {
+              dispatch({
+                type: 'SET_ERROR',
+                message: `Pinkward could not place both players on opposite teams (${teamBalance.diagnosticCode}).`,
+              });
+              throw new Error(teamBalance.diagnosticCode);
+            }
             await window.w3c!.league.setPositionPreferences(
               stateRef.current.primaryRole,
               stateRef.current.secondaryRole,

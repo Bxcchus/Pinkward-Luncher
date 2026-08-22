@@ -34,6 +34,7 @@ const REQUIRED_FUNCTIONS = [
   'GetLolLobbyV2LobbyMembers',
   'GetLolMatchHistoryV1GamesByGameId',
   'PostLolLobbyV1CustomGamesByIdJoin',
+  'PostLolLobbyV1LobbyCustomSwitchTeams',
   'PostLolLobbyV1LobbyCustomStartChampSelect',
   'PostLolLobbyV2Lobby',
 ] as const;
@@ -105,6 +106,18 @@ export function isManagedTestLobbyName(
   if (!lobbyName) return false;
   const suffix = mode === 'DUEL' ? 'DUEL-' : 'BOTS-';
   return lobbyName.startsWith(`PINKWARD-${suffix}`) || lobbyName.startsWith(`W3C-${suffix}`);
+}
+
+export function duelTeamBalanceAction(
+  teamOneCount: number,
+  teamTwoCount: number,
+): 'BALANCED' | 'SWITCH_LOCAL' | 'INVALID' {
+  if (teamOneCount === 1 && teamTwoCount === 1) return 'BALANCED';
+  if (
+    (teamOneCount === 2 && teamTwoCount === 0) ||
+    (teamOneCount === 0 && teamTwoCount === 2)
+  ) return 'SWITCH_LOCAL';
+  return 'INVALID';
 }
 
 const commandResult = (
@@ -405,6 +418,51 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
 
   async startGame(): Promise<AdapterCommandResult> {
     return this.startValidatedGame('HUMAN_5V5');
+  }
+
+  async balanceDuelTeams(): Promise<AdapterCommandResult> {
+    try {
+      const client = await this.verifiedClient();
+      const phase = await this.phase(client);
+      const lobby = await this.currentLobby(client);
+      if (
+        phase !== 'Lobby' ||
+        !lobby ||
+        lobby.gameConfig.isCustom !== true ||
+        !isManagedTestLobbyName(lobby.gameConfig.customLobbyName, 'DUEL')
+      ) {
+        return commandResult('FAILED', 'LCU_DUEL_LOBBY_NOT_ACTIVE', mapGameflowState(phase), true);
+      }
+
+      const action = duelTeamBalanceAction(
+        lobby.gameConfig.customTeam100?.length ?? 0,
+        lobby.gameConfig.customTeam200?.length ?? 0,
+      );
+      if (action === 'BALANCED') {
+        return commandResult('SUCCESS', 'LCU_DUEL_TEAMS_ALREADY_BALANCED', 'LOBBY', true);
+      }
+      if (action === 'INVALID') {
+        return commandResult('FAILED', 'LCU_DUEL_ROSTER_INVALID', 'LOBBY', true);
+      }
+
+      await client.post<unknown>('/lol-lobby/v1/lobby/custom/switch-teams');
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const updated = await this.currentLobby(client);
+        if (
+          updated &&
+          duelTeamBalanceAction(
+            updated.gameConfig.customTeam100?.length ?? 0,
+            updated.gameConfig.customTeam200?.length ?? 0,
+          ) === 'BALANCED'
+        ) {
+          return commandResult('SUCCESS', 'LCU_DUEL_TEAMS_BALANCED', 'LOBBY', true);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      return commandResult('UNKNOWN', 'LCU_DUEL_TEAM_SWITCH_NOT_OBSERVED', 'LOBBY', true);
+    } catch (error) {
+      return this.failedCommand(error, 'LCU_DUEL_TEAM_SWITCH_FAILED');
+    }
   }
 
   async startDuelGame(): Promise<AdapterCommandResult> {

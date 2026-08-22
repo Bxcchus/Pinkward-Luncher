@@ -74,6 +74,26 @@ Artifacts are written to `release-artifacts/` as a Windows installer and a porta
 Only the installed NSIS edition uses automatic updates. Windows releases must
 be Authenticode-signed before they are distributed publicly.
 
+## Signed GitHub releases
+
+The release workflow requires these repository secrets:
+
+- `WIN_CSC_LINK`: base64-encoded Authenticode `.pfx` certificate;
+- `WIN_CSC_KEY_PASSWORD`: password protecting the certificate.
+
+The workflow refuses unsigned artifacts and publishes only when a `v*` tag
+matches the version in `package.json`. To publish after updating the version:
+
+```powershell
+npm version patch
+git push origin main
+git push origin --tags
+```
+
+The generated installer, portable executable, blockmap, and `latest.yml` are
+attached to the GitHub Release. Installed NSIS editions then discover the new
+version through the repository's `releases/latest/download` endpoint.
+
 ## Backend contract boundary
 
 REST paths are isolated in `src/services/apiClient.ts`; WebSocket DTOs and event mapping are isolated in `src/services/webSocketClient.ts`. This keeps the companion adaptable while the authoritative backend contract evolves.

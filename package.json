@@ -58,9 +58,10 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://updates.invalid/w3c-lol"
+        "url": "https://github.com/Alexis-Guyon/Pinkward-Luncher/releases/latest/download"
       }
     ],
+    "forceCodeSigning": true,
     "electronDist": "node_modules/electron/dist",
     "directories": {
       "output": "release-artifacts"
@@ -77,6 +78,9 @@
       }
     ],
     "win": {
+      "signingHashAlgorithms": [
+        "sha256"
+      ],
       "target": [
         "nsis",
         "portable"

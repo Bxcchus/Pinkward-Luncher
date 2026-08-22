@@ -71,9 +71,8 @@ npm run package:win
 ```
 
 Artifacts are written to `release-artifacts/` as a Windows installer and a portable executable.
-Tagged releases are signed and published by GitHub Actions; see
-[`docs/RELEASE.md`](../docs/RELEASE.md). Only the installed NSIS edition uses
-automatic updates.
+Only the installed NSIS edition uses automatic updates. Windows releases must
+be Authenticode-signed before they are distributed publicly.
 
 ## Backend contract boundary
 

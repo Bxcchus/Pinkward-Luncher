@@ -1654,7 +1654,7 @@ export function useAppController(): AppController {
 
   const setMatchmakingMode = useCallback((mode: 'DUEL_1V1' | 'COMMUNITY_5V5') => {
     const current = stateRef.current;
-    if (mode === 'DUEL_1V1' && (current.partyId || current.partyMembers.length > 0)) {
+    if (mode === 'DUEL_1V1' && current.partyMembers.length > 0) {
       dispatch({
         type: 'SHOW_TOAST',
         message: 'Leave your party before switching to 1v1 Showdown.',

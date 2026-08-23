@@ -193,7 +193,7 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
             className={`match-mode-option${state.settings.duelMode ? ' match-mode-option--active' : ''}`}
             aria-label="1v1 Showdown — Howling Abyss"
             aria-pressed={state.settings.duelMode}
-            disabled={searching || Boolean(state.partyId) || state.partyMembers.length > 0}
+            disabled={searching || state.partyMembers.length > 0}
             onClick={() => controller.setMatchmakingMode('DUEL_1V1')}
           >
             <span className="match-mode-option__players">1V1</span>

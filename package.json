@@ -19,6 +19,7 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:lcu:firstblood": "npm run build:electron && node scripts/probe-firstblood-1x1.mjs",
     "check": "npm run lint && npm run test && npm run build",
     "package:win": "npm run check && electron-builder --win --x64"
   },

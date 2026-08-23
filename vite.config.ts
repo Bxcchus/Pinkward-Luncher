@@ -2,7 +2,7 @@ import { configDefaults, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: './',
+  base: process.env.VITE_WEB_DEMO === 'true' ? '/' : './',
   plugins: [react()],
   server: {
     port: 5173,

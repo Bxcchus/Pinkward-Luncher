@@ -17,12 +17,17 @@ import {
   SearchingScreen,
   SettingsScreen,
 } from './screens/MainScreens';
+import { DemoInformationScreen, type DemoInformationRoute } from './screens/DemoInformationScreen';
+import { isWebDemo } from './services/runtimeConfig';
+
+const demoInformationRoutes = new Set<DemoInformationRoute>(['matchmaking', 'privacy', 'terms', 'contact']);
 
 export default function App() {
   const controller = useAppController();
   const { state } = controller;
   const [dismissedInvitationId, setDismissedInvitationId] = useState<string | null>(null);
   const pendingInvitation = state.partyInvitations[0];
+  const requestedRoute = window.location.pathname.replace(/^\/+|\/+$/g, '') as DemoInformationRoute;
 
   useEffect(() => {
     if (!state.toast) return;
@@ -30,6 +35,7 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [controller, state.toast]);
 
+  if (isWebDemo && demoInformationRoutes.has(requestedRoute)) return <DemoInformationScreen route={requestedRoute} />;
   if (!state.player || state.screen === 'LOGIN') return <LoginScreen controller={controller} />;
 
   let screen: React.ReactNode;

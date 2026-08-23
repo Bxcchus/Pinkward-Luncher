@@ -7,6 +7,8 @@ import { LeagueBadge, ServerBadge } from './StatusBadge';
 import { WindowControls } from './WindowControls';
 import { LeagueMark } from './LeagueMark';
 import { SummonerAvatar } from './SummonerAvatar';
+import { isWebDemo } from '../services/runtimeConfig';
+import { DemoLegalNav } from './DemoLegalNav';
 
 const activeFlowScreens = new Set<AppScreen>([
   'SEARCHING',
@@ -70,14 +72,15 @@ export function AppShell({ state, controller, children }: ShellProps) {
               <div><strong>Active session</strong><small>{state.screen.replaceAll('_', ' ').toLowerCase()}</small></div>
             </div>
           )}
+          {isWebDemo && <DemoLegalNav compact />}
           <div className="sidebar-status" aria-label="Connection summary">
             <div><i className={`status-dot status-dot--${state.serverStatus === 'DISCONNECTED' ? 'danger' : state.serverStatus === 'SIMULATION' ? 'demo' : 'success'}`} /><span>Server</span><strong>{state.serverStatus === 'SIMULATION' ? 'Demo' : state.serverStatus.toLowerCase()}</strong></div>
-            <div><i className={`status-dot status-dot--${state.league.running ? 'success' : 'warning'}`} /><span>League</span><strong>{state.league.running ? 'Detected' : 'Closed'}</strong></div>
+            <div><i className={`status-dot status-dot--${isWebDemo ? 'demo' : state.league.running ? 'success' : 'warning'}`} /><span>League</span><strong>{isWebDemo ? 'Simulated' : state.league.running ? 'Detected' : 'Closed'}</strong></div>
           </div>
         </div>
       </aside>
 
-      <section className="workspace">
+      <section className={isWebDemo ? 'workspace workspace--web-demo' : 'workspace'}>
         <header className="topbar">
           <div className="topbar__identity">
             <SummonerAvatar
@@ -86,13 +89,13 @@ export function AppShell({ state, controller, children }: ShellProps) {
             />
             <div>
               <strong>{state.player?.gameName}<span>#{state.player?.tagLine}</span></strong>
-              <small>Verified League session</small>
+              <small>{isWebDemo ? 'Interactive local simulation' : 'Verified League session'}</small>
             </div>
             <span className="region-badge">{state.player?.region}</span>
           </div>
           <div className="topbar__statuses">
             <ServerBadge status={state.serverStatus} />
-            <LeagueBadge status={state.league} />
+            <LeagueBadge status={state.league} simulated={isWebDemo} />
             <button type="button" className="icon-button" onClick={() => controller.navigate('SETTINGS')} aria-label="Open settings" disabled={locked && state.screen !== 'SETTINGS'}>
               <Icon name="settings" size={18} />
             </button>
@@ -103,6 +106,12 @@ export function AppShell({ state, controller, children }: ShellProps) {
           </div>
         </header>
 
+        {isWebDemo && (
+          <div className="web-demo-banner" role="status">
+            <Icon name="shield" size={17} />
+            <span><strong>Web demo.</strong> Every action is simulated locally; no Riot account, League Client or API key is used.</span>
+          </div>
+        )}
         {leagueDisconnected && (
           <div className="league-disconnected-banner" role="alert">
             <LeagueMark size={18} />

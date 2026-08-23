@@ -541,6 +541,10 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .role-option .role-glyph svg { width: 72%; height: 72%; transform: none; }
 .role-panel--locked .role-option { cursor: default; }
 .role-panel--locked .role-option:not(.role-option--active) { opacity: .34; }
+.role-lock-notice { position: relative; z-index: 1; display: flex; min-height: 48px; align-items: center; gap: 10px; margin: 0 0 16px; padding: 0 14px; color: var(--gold-strong); border: 1px solid rgba(200, 155, 60, .45); background: rgba(200, 155, 60, .08); }
+.role-lock-notice strong, .role-lock-notice small { display: block; }
+.role-lock-notice strong { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.role-lock-notice small { margin-top: 3px; color: var(--text-muted); font-size: 9px; }
 .queue-summary { isolation: isolate; position: absolute; top: 30px; right: 0; display: flex; width: var(--summary-width); min-height: 650px; flex-direction: column; padding: 24px 28px 15px; border: 0; background: #786b49; clip-path: polygon(15px 0, calc(100% - 15px) 0, 100% 15px, 100% calc(100% - 15px), calc(100% - 15px) 100%, 15px 100%, 0 calc(100% - 15px), 0 15px); }
 .queue-summary::before { position: absolute; z-index: 0; inset: 1px; content: ""; pointer-events: none; background: linear-gradient(180deg, rgb(8, 25, 33), rgb(5, 16, 22)); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% calc(100% - 14px), calc(100% - 14px) 100%, 14px 100%, 0 calc(100% - 14px), 0 14px); }
 .queue-summary::after { position: absolute; z-index: 0; inset: 7px; box-sizing: border-box; padding: 1px; content: ""; pointer-events: none; background: rgba(200, 155, 60, .5); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 8px, 100% calc(100% - 8px), calc(100% - 8px) 100%, 8px 100%, 0 calc(100% - 8px), 0 8px); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }

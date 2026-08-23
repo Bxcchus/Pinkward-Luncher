@@ -97,13 +97,18 @@ describe('Pinkward companion', () => {
     const duel = screen.getByRole('button', { name: /1v1 showdown/i });
     const fiveVersusFive = screen.getByRole('button', { name: /5v5 community draft/i });
     expect(duel).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/roles locked for 1v1/i)).toBeInTheDocument();
+    screen.getAllByRole('radio').forEach((role) => expect(role).toBeDisabled());
 
     fireEvent.click(fiveVersusFive);
     expect(fiveVersusFive).toHaveAttribute('aria-pressed', 'true');
     expect(duel).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByText(/roles locked for 1v1/i)).not.toBeInTheDocument();
+    screen.getAllByRole('radio').forEach((role) => expect(role).toBeEnabled());
 
     fireEvent.click(duel);
     expect(duel).toHaveAttribute('aria-pressed', 'true');
+    screen.getAllByRole('radio').forEach((role) => expect(role).toBeDisabled());
   });
 
   it('keeps the 1v1 and 5v5 community rooms separate in simulation mode', async () => {

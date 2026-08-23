@@ -335,7 +335,7 @@ const lifecycleCopy: Record<MatchLifecycle, { title: string; detail: string }> =
   STARTING: { title: 'Starting game', detail: 'All conditions are satisfied' },
   CHAMP_SELECT: { title: 'Champion select', detail: 'Continue in League Client' },
   IN_GAME: { title: 'Game in progress', detail: 'Result detection is active' },
-  DUEL_ENDING: { title: 'Victory confirmed', detail: 'Waiting for Riot to close the custom game' },
+  DUEL_ENDING: { title: 'Result saved', detail: 'Waiting for Riot to close the custom game' },
   POST_GAME: { title: 'Post game', detail: 'Collecting match result' },
   FINISHED: { title: 'Finished', detail: 'Result recorded' },
 };
@@ -346,11 +346,11 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
   if (lifecycle === 'DUEL_ENDING') {
     return (
       <div className="screen">
-        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Result recorded. Pinkward disconnects the loser after 5 seconds, then the winner after 6 seconds." />
+        <PageHeading eyebrow="DUEL COMPLETE" title="Result saved" description="The raw result is durable. Statistics are calculated afterward while League closes the custom game." action={<Button tone="ghost" icon="external" onClick={() => void controller.openLeague()}>Open League</Button>} />
         <section className="panel ingame-dashboard">
-          <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>PLEASE WAIT</strong><span>Exit guard active</span></div>
-          <Alert tone="info" title="Do not press Reconnect">
-            The one-second separation lets Riot observe the defeat before the winner exits. Pinkward keeps the duel closed until Riot confirms that the custom game has ended.
+          <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>RESULT SAFE</strong><span>Waiting for Riot gameflow</span></div>
+          <Alert tone="warning" title="Riot controls the game session">
+            Pinkward requests League’s native early exit when it is available. If League does not allow it for this custom ARAM, finish through surrender or the nexus. Pinkward will not crash the game process, because that creates the Reconnect button and can pause the match.
           </Alert>
         </section>
       </div>

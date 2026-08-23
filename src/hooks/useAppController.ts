@@ -141,6 +141,7 @@ export function useAppController(): AppController {
   const reportedDuelVictoryRef = useRef(new Set<string>());
   const pendingDuelCompletionsRef = useRef(new Map<string, PendingDuelCompletion>());
   const duelExitTimersRef = useRef(new Map<string, number>());
+  const duelExitAttemptedRef = useRef(new Set<string>());
   const duelExitGuardInFlightRef = useRef(new Set<string>());
   const duelCompletionInFlightRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
@@ -148,14 +149,22 @@ export function useAppController(): AppController {
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
 
   const exitDuelGame = useCallback(async (matchId: string) => {
-    if (!window.w3c || duelExitGuardInFlightRef.current.has(matchId)) return;
+    if (
+      !window.w3c ||
+      duelExitAttemptedRef.current.has(matchId) ||
+      duelExitGuardInFlightRef.current.has(matchId)
+    ) return;
+    duelExitAttemptedRef.current.add(matchId);
     duelExitGuardInFlightRef.current.add(matchId);
     try {
       const exitedGame = await window.w3c.league.exitDuelGame().catch(() => null);
+      if (!exitedGame) {
+        duelExitAttemptedRef.current.delete(matchId);
+      }
       if (!exitedGame?.successful) {
         dispatch({
           type: 'SHOW_TOAST',
-          message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
+          message: 'Result saved. Riot does not allow a clean early exit for this custom game; finish it normally or surrender. Pinkward will not crash League and create a Reconnect loop.',
         });
       }
     } finally {
@@ -179,6 +188,7 @@ export function useAppController(): AppController {
   useEffect(() => () => {
     duelExitTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     duelExitTimersRef.current.clear();
+    duelExitAttemptedRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -286,6 +296,7 @@ export function useAppController(): AppController {
                 current.settings.desktopNotifications,
               );
               pendingDuelCompletionsRef.current.delete(matchId);
+              duelExitAttemptedRef.current.delete(matchId);
               inactiveGameflowPollsRef.current.delete(matchId);
               activeGameIdRef.current = null;
               await api.getMyStats()
@@ -375,7 +386,7 @@ export function useAppController(): AppController {
                     score,
                   },
                   notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  notificationBody: `${duelVictoryMessage(victory)} The loser exits after 5 seconds, then the winner after 6 seconds.`,
+                  notificationBody: `${duelVictoryMessage(victory)} Result saved; Pinkward now requests League's native exit.`,
                   acknowledgeServer: false,
                   inactivePolls: 0,
                   exitNotBeforeMs,
@@ -383,7 +394,7 @@ export function useAppController(): AppController {
                 dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
                 desktopNotification(
                   `${duelConditionLabel(victory.condition)} confirmed`,
-                  'Do not reconnect. The loser exits in 5 seconds, then the winner in 6 seconds.',
+                  'The result is saved first. Pinkward will request League’s native exit after the result screen.',
                   current.settings.desktopNotifications,
                 );
                 return;
@@ -907,7 +918,7 @@ export function useAppController(): AppController {
               score,
             },
             notificationTitle: localWon ? '1v1 victory' : '1v1 defeat',
-            notificationBody: 'Riot released the custom game. The server-confirmed result is recorded.',
+            notificationBody: 'The server-confirmed result is stored. Pinkward is waiting for Riot to release the custom game.',
             acknowledgeServer: true,
             inactivePolls: 0,
             exitNotBeforeMs,
@@ -915,7 +926,7 @@ export function useAppController(): AppController {
           dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
           desktopNotification(
             `${duelConditionLabel(snapshot.result!.winCondition)} confirmed`,
-            'Do not reconnect. The loser exits in 5 seconds, then the winner in 6 seconds.',
+            'The result is saved first. Pinkward will use Riot’s native exit if this custom game permits it.',
             stateRef.current.settings.desktopNotifications,
           );
         });

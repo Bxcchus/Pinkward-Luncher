@@ -3,7 +3,7 @@ import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { LeagueClientAdapter } from './LeagueClientAdapter.js';
-import { readDuelFirstBlood } from './LiveClientDataClient.js';
+import { readDuelVictory } from './LiveClientDataClient.js';
 import { parseLeagueGameResult } from './gameResult.js';
 import { parseLeagueIdentity } from './leagueIdentity.js';
 import { botPlanForRole, positionForRole } from './botRoster.js';
@@ -20,7 +20,7 @@ import type {
   BotLobbyConfiguration,
   CustomLobbyConfiguration,
   CustomLobbyRuleset,
-  DuelFirstBloodSnapshot,
+  DuelVictorySnapshot,
   LeagueGameResultSnapshot,
   LeagueIdentitySnapshot,
   LeagueClientState,
@@ -228,9 +228,9 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
     }
   }
 
-  async getDuelFirstBlood(): Promise<DuelFirstBloodSnapshot | null> {
+  async getDuelVictory(): Promise<DuelVictorySnapshot | null> {
     try {
-      return await readDuelFirstBlood();
+      return await readDuelVictory();
     } catch {
       return null;
     }

@@ -109,7 +109,7 @@ export function HomeScreen({ controller }: { controller: AppController }) {
           <dl className="compact-metrics">
             <div><dt>Players searching</dt><dd>{state.playersSearching}</dd></div>
             <div><dt>Estimated wait</dt><dd>~{seconds(state.estimatedWaitSeconds)}</dd></div>
-            <div><dt>Mode</dt><dd>{state.settings.duelMode ? '1v1 First Blood' : 'Community 5v5'}</dd></div>
+            <div><dt>Mode</dt><dd>{state.settings.duelMode ? '1v1 Showdown' : 'Community 5v5'}</dd></div>
           </dl>
           <Button tone="primary" icon="search" fullWidth onClick={() => controller.navigate('PLAY')}>Find a match</Button>
         </section>
@@ -153,7 +153,7 @@ function QueueSummary({ controller, searching = false, pending = false, onFind }
         </div>
       )}
       <dl className="compact-metrics">
-        <div><dt><Icon name="spark" size={18} /><span>Mode</span></dt><dd>{state.settings.duelMode ? '1v1 First Blood' : 'Community 5v5'}</dd></div>
+        <div><dt><Icon name="spark" size={18} /><span>Mode</span></dt><dd>{state.settings.duelMode ? '1v1 Showdown' : 'Community 5v5'}</dd></div>
         <div><dt><Icon name="clock" size={18} /><span>Estimated wait</span></dt><dd>{state.settings.duelMode ? '~ 0:45' : `~${seconds(state.estimatedWaitSeconds)}`}</dd></div>
         <div><dt><Icon name="server" size={18} /><span>Server</span></dt><dd className={state.serverStatus === 'DISCONNECTED' ? 'text-danger' : 'text-success'}>{state.serverStatus}</dd></div>
         <div><dt><LeagueMark size={18} /><span>League</span></dt><dd className={leagueReady ? 'text-success' : state.league.running ? 'text-warning' : 'text-danger'}>{leagueReady ? 'Detected' : state.league.running ? 'Manual fallback' : 'Unavailable'}</dd></div>
@@ -191,13 +191,13 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
           <button
             type="button"
             className={`match-mode-option${state.settings.duelMode ? ' match-mode-option--active' : ''}`}
-            aria-label="1v1 First Blood — Howling Abyss"
+            aria-label="1v1 Showdown — Howling Abyss"
             aria-pressed={state.settings.duelMode}
             disabled={searching || Boolean(state.partyId) || state.partyMembers.length > 0}
             onClick={() => controller.setMatchmakingMode('DUEL_1V1')}
           >
             <span className="match-mode-option__players">1V1</span>
-            <span><strong>First Blood</strong><small>Howling Abyss · First kill wins</small></span>
+            <span><strong>Showdown</strong><small>First blood · 100 CS · First turret</small></span>
           </button>
           <button
             type="button"
@@ -335,7 +335,7 @@ const lifecycleCopy: Record<MatchLifecycle, { title: string; detail: string }> =
   STARTING: { title: 'Starting game', detail: 'All conditions are satisfied' },
   CHAMP_SELECT: { title: 'Champion select', detail: 'Continue in League Client' },
   IN_GAME: { title: 'Game in progress', detail: 'Result detection is active' },
-  DUEL_ENDING: { title: 'First blood confirmed', detail: 'Waiting for Riot to close the custom game' },
+  DUEL_ENDING: { title: 'Victory confirmed', detail: 'Waiting for Riot to close the custom game' },
   POST_GAME: { title: 'Post game', detail: 'Collecting match result' },
   FINISHED: { title: 'Finished', detail: 'Result recorded' },
 };
@@ -346,7 +346,7 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
   if (lifecycle === 'DUEL_ENDING') {
     return (
       <div className="screen">
-        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Pinkward recorded first blood and is waiting for Riot to release both players." />
+        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Pinkward recorded the winning objective and is waiting for Riot to release both players." />
         <section className="panel ingame-dashboard">
           <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>PLEASE WAIT</strong><span>Exit guard active</span></div>
           <Alert tone="info" title="Do not press Reconnect">

@@ -20,6 +20,7 @@ interface QueueRequest {
 
 interface DuelFinishRequest {
   outcome: 'BLUE_WIN' | 'RED_WIN' | 'UNKNOWN';
+  winCondition?: 'FIRST_BLOOD' | 'CREEP_SCORE_100' | 'FIRST_TURRET';
   durationSeconds?: number;
   score?: string;
   completedAt: string;

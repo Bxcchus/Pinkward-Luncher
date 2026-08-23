@@ -259,7 +259,7 @@ function registerIpc(): void {
   ipcMain.handle('league:get-game-result', (_event, gameId: number) =>
     leagueAdapter.getGameResult(gameId),
   );
-  ipcMain.handle('league:get-duel-first-blood', () => leagueAdapter.getDuelFirstBlood());
+  ipcMain.handle('league:get-duel-victory', () => leagueAdapter.getDuelVictory());
   ipcMain.handle('league:create-custom-lobby', (_event, config: CustomLobbyConfiguration) =>
     leagueAdapter.createCustomLobby(config),
   );

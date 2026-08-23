@@ -83,7 +83,7 @@ describe('Pinkward companion', () => {
     expect(screen.getByText('Community 5v5')).toBeInTheDocument();
   });
 
-  it('offers 1v1 First Blood as a permanent matchmaking mode', async () => {
+  it('offers 1v1 Showdown as a permanent matchmaking mode', async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /simulation mode/i }));
@@ -94,7 +94,7 @@ describe('Pinkward companion', () => {
     await waitFor(() => screen.getByRole('button', { name: /start matchmaking/i }));
     fireEvent.click(screen.getByRole('button', { name: /start matchmaking/i }));
 
-    const duel = screen.getByRole('button', { name: /1v1 first blood/i });
+    const duel = screen.getByRole('button', { name: /1v1 showdown/i });
     const fiveVersusFive = screen.getByRole('button', { name: /5v5 community draft/i });
     expect(duel).toHaveAttribute('aria-pressed', 'true');
 

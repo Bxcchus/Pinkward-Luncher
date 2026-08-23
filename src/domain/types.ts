@@ -103,11 +103,16 @@ export interface LeagueGameResult {
   score?: string;
 }
 
-export interface LeagueDuelFirstBlood {
-  eventId: number;
+export type DuelWinCondition = 'FIRST_BLOOD' | 'CREEP_SCORE_100' | 'FIRST_TURRET';
+
+export interface LeagueDuelVictory {
+  condition: DuelWinCondition;
+  eventId?: number;
   eventTimeSeconds: number;
-  killerName: string;
-  victimName: string;
+  winnerName: string;
+  loserName: string;
+  winnerValue: number;
+  loserValue: number;
   localPlayerWon: boolean;
 }
 
@@ -153,6 +158,7 @@ export interface DuelSnapshot {
   partyId: string | null;
   result: {
     outcome: 'BLUE_WIN' | 'RED_WIN' | 'UNKNOWN';
+    winCondition: DuelWinCondition | null;
     durationSeconds: number | null;
     score: string | null;
     completedAt: string;

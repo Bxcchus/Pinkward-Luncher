@@ -31,7 +31,7 @@ const leagueBridge = {
   getStatus: () => ipcRenderer.invoke('league:get-status'),
   getIdentity: () => ipcRenderer.invoke('league:get-identity'),
   getGameResult: (gameId: number) => ipcRenderer.invoke('league:get-game-result', gameId),
-  getDuelFirstBlood: () => ipcRenderer.invoke('league:get-duel-first-blood'),
+  getDuelVictory: () => ipcRenderer.invoke('league:get-duel-victory'),
   createCustomLobby: (configuration: CustomLobbyConfiguration) =>
     ipcRenderer.invoke('league:create-custom-lobby', configuration),
   createBotLobby: (configuration: BotLobbyConfiguration) =>

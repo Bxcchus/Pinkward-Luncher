@@ -27,11 +27,16 @@ export interface LeagueGameResultSnapshot {
   score?: string;
 }
 
-export interface DuelFirstBloodSnapshot {
-  eventId: number;
+export type DuelWinCondition = 'FIRST_BLOOD' | 'CREEP_SCORE_100' | 'FIRST_TURRET';
+
+export interface DuelVictorySnapshot {
+  condition: DuelWinCondition;
+  eventId?: number;
   eventTimeSeconds: number;
-  killerName: string;
-  victimName: string;
+  winnerName: string;
+  loserName: string;
+  winnerValue: number;
+  loserValue: number;
   localPlayerWon: boolean;
 }
 

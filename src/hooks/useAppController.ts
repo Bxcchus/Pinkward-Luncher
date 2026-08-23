@@ -5,7 +5,9 @@ import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
   AppSettings,
   AppState,
+  DuelWinCondition,
   DuelSnapshot,
+  LeagueDuelVictory,
   LeagueStatus,
   MatchSummary,
   PlayerIdentity,
@@ -49,6 +51,36 @@ interface PendingDuelCompletion {
   notificationBody: string;
   acknowledgeServer: boolean;
   inactivePolls: number;
+}
+
+function duelConditionLabel(condition: DuelWinCondition | null | undefined): string {
+  switch (condition) {
+    case 'CREEP_SCORE_100': return '100 CS';
+    case 'FIRST_TURRET': return 'first turret';
+    default: return 'first blood';
+  }
+}
+
+function duelVictoryScore(victory: LeagueDuelVictory, winningTeam: 'BLUE' | 'RED'): string {
+  const formatValue = (value: number) => {
+    if (victory.condition === 'CREEP_SCORE_100') return `${value} CS`;
+    const unit = victory.condition === 'FIRST_TURRET' ? 'turret' : 'kill';
+    return `${value} ${unit}${value === 1 ? '' : 's'}`;
+  };
+  const winner = formatValue(victory.winnerValue);
+  const loser = formatValue(victory.loserValue);
+  return winningTeam === 'BLUE' ? `${winner} — ${loser}` : `${loser} — ${winner}`;
+}
+
+function duelVictoryMessage(victory: LeagueDuelVictory): string {
+  switch (victory.condition) {
+    case 'CREEP_SCORE_100':
+      return `${victory.winnerName} reached 100 CS first (${victory.winnerValue}–${victory.loserValue}).`;
+    case 'FIRST_TURRET':
+      return `${victory.winnerName} destroyed the first turret.`;
+    default:
+      return `${victory.winnerName} scored first blood.`;
+  }
 }
 
 export interface AppController {
@@ -103,8 +135,8 @@ export function useAppController(): AppController {
   const gameResultChecksInFlightRef = useRef(new Set<string>());
   const reportedGameResultsRef = useRef(new Set<string>());
   const duelOperationsRef = useRef(new Set<string>());
-  const duelFirstBloodChecksInFlightRef = useRef(new Set<string>());
-  const reportedDuelFirstBloodRef = useRef(new Set<string>());
+  const duelVictoryChecksInFlightRef = useRef(new Set<string>());
+  const reportedDuelVictoryRef = useRef(new Set<string>());
   const pendingDuelCompletionsRef = useRef(new Map<string, PendingDuelCompletion>());
   const duelExitGuardInFlightRef = useRef(new Set<string>());
   const duelCompletionInFlightRef = useRef(new Set<string>());
@@ -252,45 +284,46 @@ export function useAppController(): AppController {
             status.state === 'IN_GAME' &&
             current.lifecycle === 'IN_GAME' &&
             window.w3c &&
-            !reportedDuelFirstBloodRef.current.has(matchId) &&
-            !duelFirstBloodChecksInFlightRef.current.has(matchId)
+            !reportedDuelVictoryRef.current.has(matchId) &&
+            !duelVictoryChecksInFlightRef.current.has(matchId)
           ) {
-            duelFirstBloodChecksInFlightRef.current.add(matchId);
+            duelVictoryChecksInFlightRef.current.add(matchId);
             try {
-              const firstBlood = await window.w3c.league.getDuelFirstBlood();
-              if (firstBlood) {
+              const victory = await window.w3c.league.getDuelVictory();
+              if (victory) {
                 const currentTeam = current.participants.find(
                   (participant) => participant.isCurrentPlayer,
                 )?.team;
                 if (!currentTeam) {
                   dispatch({
                     type: 'SET_ERROR',
-                    message: 'First blood was detected, but your assigned team is unknown.',
+                    message: 'A 1v1 win condition was detected, but your assigned team is unknown.',
                   });
                   return;
                 }
 
-                reportedDuelFirstBloodRef.current.add(matchId);
-                const winningTeam = firstBlood.localPlayerWon
+                reportedDuelVictoryRef.current.add(matchId);
+                const winningTeam = victory.localPlayerWon
                   ? currentTeam
                   : currentTeam === 'BLUE' ? 'RED' : 'BLUE';
                 const outcome = winningTeam === 'BLUE' ? 'BLUE_WIN' : 'RED_WIN';
-                const durationSeconds = Math.max(0, Math.round(firstBlood.eventTimeSeconds));
-                const score = winningTeam === 'BLUE' ? '1 — 0' : '0 — 1';
+                const durationSeconds = Math.max(0, Math.round(victory.eventTimeSeconds));
+                const score = duelVictoryScore(victory, winningTeam);
                 const completedAt = new Date().toISOString();
 
                 try {
                   await api.finishDuel(matchId, {
                     outcome,
+                    winCondition: victory.condition,
                     durationSeconds,
                     score,
                     completedAt,
                   });
                 } catch {
-                  reportedDuelFirstBloodRef.current.delete(matchId);
+                  reportedDuelVictoryRef.current.delete(matchId);
                   dispatch({
                     type: 'SET_ERROR',
-                    message: 'First blood was detected, but the server could not save the result.',
+                    message: 'The 1v1 win condition was detected, but the server could not save the result.',
                   });
                   return;
                 }
@@ -298,19 +331,19 @@ export function useAppController(): AppController {
                   result: {
                     id: matchId,
                     playedAt: completedAt,
-                    result: firstBlood.localPlayerWon ? 'WIN' : 'LOSS',
+                    result: victory.localPlayerWon ? 'WIN' : 'LOSS',
                     role: current.primaryRole,
                     durationSeconds,
                     score,
                   },
-                  notificationTitle: firstBlood.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  notificationBody: `${firstBlood.killerName} scored first blood. Waiting for Riot to close the custom game.`,
+                  notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
+                  notificationBody: `${duelVictoryMessage(victory)} Waiting for Riot to close the custom game.`,
                   acknowledgeServer: false,
                   inactivePolls: 0,
                 });
                 dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
                 desktopNotification(
-                  'First blood confirmed',
+                  `${duelConditionLabel(victory.condition)} confirmed`,
                   'Do not press Reconnect. Pinkward is closing the custom game for both players.',
                   current.settings.desktopNotifications,
                 );
@@ -327,7 +360,7 @@ export function useAppController(): AppController {
                 return;
               }
             } finally {
-              duelFirstBloodChecksInFlightRef.current.delete(matchId);
+              duelVictoryChecksInFlightRef.current.delete(matchId);
             }
           }
 
@@ -403,12 +436,15 @@ export function useAppController(): AppController {
                 const currentTeam = current.participants.find(
                   (participant) => participant.isCurrentPlayer,
                 )?.team;
+                const recordedOutcome = current.duelMatch ? 'UNKNOWN' : result.outcome;
                 dispatch({
                   type: 'GAME_ENDED',
                   result: {
                     id: matchId,
                     playedAt: new Date().toISOString(),
-                    result: result.outcome === `${currentTeam}_WIN` ? 'WIN' : 'LOSS',
+                    result: recordedOutcome === 'UNKNOWN'
+                      ? 'UNKNOWN'
+                      : recordedOutcome === `${currentTeam}_WIN` ? 'WIN' : 'LOSS',
                     role: current.primaryRole,
                     durationSeconds: result.durationSeconds ?? current.inGameElapsedSeconds,
                     score: result.score ?? '—',
@@ -416,7 +452,7 @@ export function useAppController(): AppController {
                 });
                 if (current.duelMatch) {
                   await api.finishDuel(matchId, {
-                    outcome: result.outcome,
+                    outcome: 'UNKNOWN',
                     durationSeconds: result.durationSeconds ?? current.inGameElapsedSeconds,
                     score: result.score,
                     completedAt: new Date().toISOString(),
@@ -819,7 +855,7 @@ export function useAppController(): AppController {
           return;
         }
         runOnce(`${matchId}:server-finished`, async () => {
-          reportedDuelFirstBloodRef.current.add(matchId);
+          reportedDuelVictoryRef.current.add(matchId);
           const currentTeam = snapshot.participants.find(
             (participant) => participant.isCurrentPlayer,
           )?.team;
@@ -847,7 +883,7 @@ export function useAppController(): AppController {
           });
           dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
           desktopNotification(
-            'First blood confirmed',
+            `${duelConditionLabel(snapshot.result!.winCondition)} confirmed`,
             'Do not press Reconnect. Pinkward is closing the custom game for both players.',
             stateRef.current.settings.desktopNotifications,
           );
@@ -1371,8 +1407,8 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
-    duelFirstBloodChecksInFlightRef.current.clear();
-    reportedDuelFirstBloodRef.current.clear();
+    duelVictoryChecksInFlightRef.current.clear();
+    reportedDuelVictoryRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode && !current.localBotMatch) {
       try {
@@ -1496,8 +1532,8 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
-    duelFirstBloodChecksInFlightRef.current.clear();
-    reportedDuelFirstBloodRef.current.clear();
+    duelVictoryChecksInFlightRef.current.clear();
+    reportedDuelVictoryRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode) {
       try {
@@ -1621,7 +1657,7 @@ export function useAppController(): AppController {
     if (mode === 'DUEL_1V1' && (current.partyId || current.partyMembers.length > 0)) {
       dispatch({
         type: 'SHOW_TOAST',
-        message: 'Leave your party before switching to 1v1 First Blood.',
+        message: 'Leave your party before switching to 1v1 Showdown.',
       });
       return;
     }

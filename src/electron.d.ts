@@ -1,6 +1,6 @@
 import type {
   LeagueClientState,
-  LeagueDuelFirstBlood,
+  LeagueDuelVictory,
   LeagueGameResult,
   LeagueIdentity,
   LeagueStatus,
@@ -39,7 +39,7 @@ declare global {
         getStatus(): Promise<LeagueStatus>;
         getIdentity(): Promise<LeagueIdentity | null>;
         getGameResult(gameId: number): Promise<LeagueGameResult | null>;
-        getDuelFirstBlood(): Promise<LeagueDuelFirstBlood | null>;
+        getDuelVictory(): Promise<LeagueDuelVictory | null>;
         createCustomLobby(configuration: LobbyCredentials & {
           region: string;
           expectedPlayers: number;

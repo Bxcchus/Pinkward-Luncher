@@ -6,6 +6,7 @@ import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
   AppSettings,
   AppState,
+  ChatChannel,
   DuelWinCondition,
   DuelSnapshot,
   LeagueDuelVictory,
@@ -90,7 +91,7 @@ export interface AppController {
   login(gameName: string, tagLine: string, region: string): Promise<void>;
   logout(): void;
   navigate(screen: 'HOME' | 'PLAY' | 'HISTORY' | 'CHAT' | 'SETTINGS'): void;
-  sendChatMessage(content: string): Promise<boolean>;
+  sendChatMessage(content: string, channel: ChatChannel): Promise<boolean>;
   setPrimaryRole(role: Role): void;
   setSecondaryRole(role: Role): void;
   inviteToParty(riotId: string): Promise<boolean>;
@@ -620,8 +621,11 @@ export function useAppController(): AppController {
 
   const refreshChat = useCallback(async () => {
     try {
-      const messages = await api.getChatMessages();
-      dispatch({ type: 'SET_CHAT_MESSAGES', messages });
+      const [duelMessages, communityMessages] = await Promise.all([
+        api.getChatMessages('DUEL_1V1'),
+        api.getChatMessages('COMMUNITY_5V5'),
+      ]);
+      dispatch({ type: 'SET_CHAT_MESSAGES', messages: [...duelMessages, ...communityMessages] });
     } catch {
       // The live socket can continue delivering messages if history loading fails temporarily.
     }
@@ -1396,7 +1400,7 @@ export function useAppController(): AppController {
     [api, refreshChat, refreshStats],
   );
 
-  const sendChatMessage = useCallback(async (content: string): Promise<boolean> => {
+  const sendChatMessage = useCallback(async (content: string, channel: ChatChannel): Promise<boolean> => {
     const current = stateRef.current;
     const normalized = content.trim();
     if (!normalized || normalized.length > 500 || !current.player) return false;
@@ -1408,6 +1412,7 @@ export function useAppController(): AppController {
           authorId: current.player.id,
           gameName: current.player.gameName,
           tagLine: current.player.tagLine,
+          channel,
           content: normalized,
           sentAt: new Date().toISOString(),
         },
@@ -1415,7 +1420,7 @@ export function useAppController(): AppController {
       return true;
     }
     try {
-      const message = await api.sendChatMessage(normalized);
+      const message = await api.sendChatMessage(normalized, channel);
       dispatch({ type: 'RECEIVE_CHAT_MESSAGE', message });
       return true;
     } catch (error) {

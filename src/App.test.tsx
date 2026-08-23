@@ -106,7 +106,7 @@ describe('Pinkward companion', () => {
     expect(duel).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('opens the community room and sends a message in simulation mode', async () => {
+  it('keeps the 1v1 and 5v5 community rooms separate in simulation mode', async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /simulation mode/i }));
@@ -116,12 +116,19 @@ describe('Pinkward companion', () => {
 
     await waitFor(() => screen.getByRole('button', { name: /community/i }));
     fireEvent.click(screen.getByRole('button', { name: /community/i }));
-    fireEvent.change(screen.getByLabelText(/message #general/i), {
-      target: { value: 'Available for a custom game tonight.' },
+    fireEvent.change(screen.getByLabelText(/message #1v1/i), {
+      target: { value: 'Looking for a 1v1 opponent.' },
     });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
 
-    expect(await screen.findByText('Available for a custom game tonight.')).toBeInTheDocument();
+    expect(await screen.findByText('Looking for a 1v1 opponent.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /# 5v5/i }));
+    expect(screen.queryByText('Looking for a 1v1 opponent.')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/message #5v5/i), {
+      target: { value: 'Support available for a 5v5.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+    expect(await screen.findByText('Support available for a 5v5.')).toBeInTheDocument();
     expect(screen.getAllByText(/Chat Player/).length).toBeGreaterThan(0);
   });
 });

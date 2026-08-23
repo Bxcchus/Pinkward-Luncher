@@ -1,4 +1,4 @@
-import type { ChatMessage, DuelSnapshot, PartyContext, PlayerIdentity, PlayerStats, Role } from '../domain/types';
+import type { ChatChannel, ChatMessage, DuelSnapshot, PartyContext, PlayerIdentity, PlayerStats, Role } from '../domain/types';
 import { runtimeConfig } from './runtimeConfig';
 
 interface SecureLoginRequest {
@@ -146,14 +146,14 @@ export class W3cApiClient {
     return this.request<PlayerStats>('/api/v1/stats/me', { method: 'GET' });
   }
 
-  getChatMessages(): Promise<ChatMessage[]> {
-    return this.request<ChatMessage[]>('/api/v1/chat/messages', { method: 'GET' });
+  getChatMessages(channel: ChatChannel): Promise<ChatMessage[]> {
+    return this.request<ChatMessage[]>(`/api/v1/chat/messages?channel=${encodeURIComponent(channel)}`, { method: 'GET' });
   }
 
-  sendChatMessage(content: string): Promise<ChatMessage> {
+  sendChatMessage(content: string, channel: ChatChannel): Promise<ChatMessage> {
     return this.request<ChatMessage>('/api/v1/chat/messages', {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ channel, content }),
     });
   }
 

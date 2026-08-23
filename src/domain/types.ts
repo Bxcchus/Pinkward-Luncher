@@ -196,11 +196,14 @@ export interface PlayerStats {
   matches: MatchSummary[];
 }
 
+export type ChatChannel = 'DUEL_1V1' | 'COMMUNITY_5V5';
+
 export interface ChatMessage {
   id: string;
   authorId: string;
   gameName: string;
   tagLine: string;
+  channel: ChatChannel;
   content: string;
   sentAt: string;
 }

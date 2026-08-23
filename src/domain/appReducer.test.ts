@@ -146,6 +146,7 @@ describe('appReducer', () => {
       authorId: 'player-2',
       gameName: 'Teammate',
       tagLine: 'EUW',
+      channel: 'COMMUNITY_5V5' as const,
       content: 'Looking for a support player',
       sentAt: '2026-08-22T12:00:00Z',
     };

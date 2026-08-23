@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AppController } from '../hooks/useAppController';
-import { ROLES, type AppState, type MatchLifecycle, type MatchSummary, type PlayerStats } from '../domain/types';
+import { ROLES, type AppState, type ChatChannel, type MatchLifecycle, type MatchSummary, type PlayerStats } from '../domain/types';
 import { Icon } from '../components/Icon';
 import { MatchTeams } from '../components/MatchTeams';
 import { RoleGlyph, RoleLoadout } from '../components/RoleSelector';
@@ -458,38 +458,45 @@ export function HistoryScreen({ state }: { state: AppState }) {
 
 export function ChatScreen({ controller }: { controller: AppController }) {
   const { state } = controller;
+  const [channel, setChannel] = useState<ChatChannel>('DUEL_1V1');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const available = state.settings.demoMode || state.serverStatus === 'CONNECTED';
+  const room = channel === 'DUEL_1V1'
+    ? { slug: '1v1', title: '1V1 Showdown', detail: 'Find an opponent or discuss duel rules.' }
+    : { slug: '5v5', title: 'Community 5V5', detail: 'Build a team and organize community drafts.' };
+  const messages = state.chatMessages.filter((message) =>
+    (message.channel ?? 'COMMUNITY_5V5') === channel,
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: 'end' });
-  }, [state.chatMessages]);
+  }, [channel, messages.length]);
 
   const submit = async (event?: FormEvent) => {
     event?.preventDefault();
     const content = draft.trim();
     if (!content || content.length > 500 || sending || !available) return;
     setSending(true);
-    const sent = await controller.sendChatMessage(content);
+    const sent = await controller.sendChatMessage(content, channel);
     if (sent) setDraft('');
     setSending(false);
   };
 
   return (
     <div className="screen chat-screen">
-      <PageHeading eyebrow="COMMUNITY" title="# general" description="Talk with players without leaving the Pinkward companion." />
+      <PageHeading eyebrow="COMMUNITY" title={`# ${room.slug}`} description="Choose the room that matches the game mode you want to play." />
       <div className="chat-layout">
         <section className="panel chat-panel">
           <header className="chat-channel-header">
-            <div><span className="chat-channel-icon"><Icon name="chat" size={18} /></span><span><strong>General</strong><small>Community lobby</small></span></div>
+            <div><span className="chat-channel-icon"><Icon name="chat" size={18} /></span><span><strong>{room.title}</strong><small>{room.detail}</small></span></div>
             <span className={`chat-live-state${available ? ' chat-live-state--online' : ''}`}><i />{available ? 'Live' : 'Offline'}</span>
           </header>
-          <div className="chat-messages" role="log" aria-live="polite" aria-label="Community messages">
-            {state.chatMessages.length === 0 ? (
-              <EmptyState title="Start the conversation" description="The last 100 community messages will appear here." />
-            ) : state.chatMessages.map((message) => {
+          <div className="chat-messages" role="log" aria-live="polite" aria-label={`${room.title} messages`}>
+            {messages.length === 0 ? (
+              <EmptyState title={`Start the ${room.slug} conversation`} description="The last 100 messages from this room will appear here." />
+            ) : messages.map((message) => {
               const own = message.authorId === state.player?.id;
               return <article className={`chat-message${own ? ' chat-message--own' : ''}`} key={message.id}>
                 <span className="chat-avatar">{message.gameName.trim().charAt(0).toUpperCase()}</span>
@@ -503,8 +510,8 @@ export function ChatScreen({ controller }: { controller: AppController }) {
           </div>
           <form className="chat-composer" onSubmit={(event) => void submit(event)}>
             <textarea
-              aria-label="Message #general"
-              placeholder={available ? 'Message #general' : 'Reconnect to the server to send messages'}
+              aria-label={`Message #${room.slug}`}
+              placeholder={available ? `Message #${room.slug}` : 'Reconnect to the server to send messages'}
               value={draft}
               maxLength={500}
               rows={2}
@@ -522,7 +529,11 @@ export function ChatScreen({ controller }: { controller: AppController }) {
         </section>
 
         <aside className="panel chat-sidebar">
-          <SectionHeader title="Community room" detail="One shared channel for all connected players." />
+          <SectionHeader title="Game rooms" detail="Messages stay inside the selected mode." />
+          <nav className="chat-room-switcher" aria-label="Community rooms">
+            <button type="button" className={channel === 'DUEL_1V1' ? 'is-active' : ''} aria-pressed={channel === 'DUEL_1V1'} onClick={() => { setChannel('DUEL_1V1'); setDraft(''); }}><strong># 1V1</strong><small>Showdown</small></button>
+            <button type="button" className={channel === 'COMMUNITY_5V5' ? 'is-active' : ''} aria-pressed={channel === 'COMMUNITY_5V5'} onClick={() => { setChannel('COMMUNITY_5V5'); setDraft(''); }}><strong># 5V5</strong><small>Community draft</small></button>
+          </nav>
           <div className="chat-identity"><SummonerAvatar gameName={state.player?.gameName} profileIconDataUrl={state.player?.profileIconDataUrl} /><span><small>Posting as</small><strong>{state.player?.gameName}<em>#{state.player?.tagLine}</em></strong></span></div>
           <div className="chat-guidelines">
             <span className="eyebrow">ROOM RULES</span>

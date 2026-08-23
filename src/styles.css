@@ -827,6 +827,13 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .chat-composer .button { min-height: 34px; padding-inline: 15px; }
 .chat-sidebar { padding: 19px; overflow: hidden; }
 .chat-sidebar > .section-header { padding-bottom: 15px; border-bottom: 1px solid var(--border); }
+.chat-room-switcher { display: grid; gap: 7px; margin: 15px 0; }
+.chat-room-switcher button { display: flex; min-height: 52px; align-items: center; justify-content: space-between; padding: 0 12px; cursor: pointer; color: var(--text-muted); border: 1px solid var(--border); background: var(--surface-soft); text-align: left; }
+.chat-room-switcher button:hover { color: var(--text); border-color: var(--border-strong); }
+.chat-room-switcher button.is-active { color: var(--gold-strong); border-color: var(--gold); background: linear-gradient(90deg, rgba(199, 157, 62, .12), rgba(18, 168, 181, .06)); box-shadow: inset 3px 0 0 var(--accent); }
+.chat-room-switcher strong, .chat-room-switcher small { display: block; }
+.chat-room-switcher strong { font-family: var(--font-display); font-size: 13px; letter-spacing: .08em; }
+.chat-room-switcher small { color: inherit; font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 .chat-identity { display: flex; align-items: center; gap: 10px; margin: 17px 0; padding: 12px; border: 1px solid var(--border); background: var(--surface-soft); }
 .chat-identity .avatar { width: 42px; height: 42px; font-size: 15px; }
 .chat-identity small, .chat-identity strong { display: block; }

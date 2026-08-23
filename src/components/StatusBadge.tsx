@@ -21,13 +21,13 @@ export function ServerBadge({ status }: { status: ServerStatus }) {
   );
 }
 
-export function LeagueBadge({ status }: { status: LeagueStatus }) {
+export function LeagueBadge({ status, simulated = false }: { status: LeagueStatus; simulated?: boolean }) {
   return (
-    <div className="status-badge" title={status.detail}>
+    <div className="status-badge" title={simulated ? 'League integration is simulated in this web demo.' : status.detail}>
       <LeagueMark size={16} />
       <span>League</span>
-      <i className={`status-dot status-dot--${statusTone(status.state)}`} />
-      <strong>{status.state.replace('_', ' ')}</strong>
+      <i className={`status-dot status-dot--${simulated ? 'demo' : statusTone(status.state)}`} />
+      <strong>{simulated ? 'SIMULATED' : status.state.replace('_', ' ')}</strong>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { LeagueMark } from '../components/LeagueMark';
 import { PartyDialog } from '../components/PartyDialog';
 import { SummonerAvatar } from '../components/SummonerAvatar';
 import { UpdateControl } from '../components/UpdateControl';
+import { isWebDemo } from '../services/runtimeConfig';
 
 const seconds = (value: number): string =>
   `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -65,7 +66,7 @@ function SectionHeader({ title, detail, action }: { title: string; detail?: stri
 
 export function HomeScreen({ controller }: { controller: AppController }) {
   const { state } = controller;
-  const leagueReady = state.league.running && state.league.adapterHealthy;
+  const leagueReady = isWebDemo || (state.league.running && state.league.adapterHealthy);
   return (
     <div className="screen screen--home">
       <PageHeading
@@ -82,10 +83,10 @@ export function HomeScreen({ controller }: { controller: AppController }) {
             profileIconDataUrl={state.player?.profileIconDataUrl}
             size="large"
           />
-          <div><span className="eyebrow">RIOT ID</span><h2>{state.player?.gameName}<small>#{state.player?.tagLine}</small></h2><p>{state.player?.region} · Detected automatically</p></div>
+          <div><span className="eyebrow">RIOT ID</span><h2>{state.player?.gameName}<small>#{state.player?.tagLine}</small></h2><p>{state.player?.region} · {isWebDemo ? 'Fictitious demo profile' : 'Detected automatically'}</p></div>
         </div>
         <div className="identity-summary__status">
-          <div><span className={`status-icon status-icon--${leagueReady ? 'success' : 'warning'}`}><LeagueMark size={20} /></span><span><small>League</small><strong>{state.league.state.replaceAll('_', ' ').toLowerCase()}</strong></span></div>
+          <div><span className={`status-icon status-icon--${leagueReady ? 'success' : 'warning'}`}><LeagueMark size={20} /></span><span><small>League</small><strong>{isWebDemo ? 'simulated' : state.league.state.replaceAll('_', ' ').toLowerCase()}</strong></span></div>
           <div><span className={`status-icon status-icon--${state.serverStatus === 'DISCONNECTED' ? 'danger' : 'success'}`}><Icon name="server" size={20} /></span><span><small>Server</small><strong>{state.serverStatus.toLowerCase()}</strong></span></div>
           <div><span className="status-icon"><RoleGlyph role={state.primaryRole} size="small" /></span><span><small>Preferred roles</small><strong>{state.primaryRole} · {state.secondaryRole}</strong></span></div>
         </div>
@@ -135,7 +136,7 @@ export function HomeScreen({ controller }: { controller: AppController }) {
 
 function QueueSummary({ controller, searching = false, pending = false, onFind }: { controller: AppController; searching?: boolean; pending?: boolean; onFind?: () => void }) {
   const { state } = controller;
-  const leagueReady = state.league.running && state.league.automationAvailable && state.league.adapterHealthy;
+  const leagueReady = isWebDemo || (state.league.running && state.league.automationAvailable && state.league.adapterHealthy);
   const unavailable = state.serverStatus === 'DISCONNECTED' && !state.settings.demoMode;
   const waitingForLeader = Boolean(state.partyId && state.partyLeaderId !== state.player?.id);
   return (
@@ -156,7 +157,7 @@ function QueueSummary({ controller, searching = false, pending = false, onFind }
         <div><dt><Icon name="spark" size={18} /><span>Mode</span></dt><dd>{state.settings.duelMode ? '1v1 Showdown' : 'Community 5v5'}</dd></div>
         <div><dt><Icon name="clock" size={18} /><span>Estimated wait</span></dt><dd>{state.settings.duelMode ? '~ 0:45' : `~${seconds(state.estimatedWaitSeconds)}`}</dd></div>
         <div><dt><Icon name="server" size={18} /><span>Server</span></dt><dd className={state.serverStatus === 'DISCONNECTED' ? 'text-danger' : 'text-success'}>{state.serverStatus}</dd></div>
-        <div><dt><LeagueMark size={18} /><span>League</span></dt><dd className={leagueReady ? 'text-success' : state.league.running ? 'text-warning' : 'text-danger'}>{leagueReady ? 'Detected' : state.league.running ? 'Manual fallback' : 'Unavailable'}</dd></div>
+        <div><dt><LeagueMark size={18} /><span>League</span></dt><dd className={leagueReady ? 'text-success' : state.league.running ? 'text-warning' : 'text-danger'}>{isWebDemo ? 'Simulated' : leagueReady ? 'Detected' : state.league.running ? 'Manual fallback' : 'Unavailable'}</dd></div>
       </dl>
       {state.error && <Alert>{state.error}</Alert>}
       {searching ? (
@@ -348,9 +349,9 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
       <div className="screen">
         <PageHeading eyebrow="DUEL COMPLETE" title="Result saved" description="The raw result is durable. Statistics are calculated afterward while League closes the custom game." action={<Button tone="ghost" icon="external" onClick={() => void controller.openLeague()}>Open League</Button>} />
         <section className="panel ingame-dashboard">
-          <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>RESULT SAFE</strong><span>Waiting for Riot gameflow</span></div>
-          <Alert tone="warning" title="Riot controls the game session">
-            Pinkward requests League’s native early exit when it is available. If League does not allow it for this custom ARAM, finish through surrender or the nexus. Pinkward will not crash the game process, because that creates the Reconnect button and can pause the match.
+          <div className="game-clock"><span className="pulse-mini" /><small>Automatic exit</small><strong>RESULT SAFE</strong><span>Closing both game windows</span></div>
+          <Alert tone="info" title="The result is already stored">
+            Five seconds after the winning condition, Pinkward sends Alt+F4 twice to each League game window so the confirmation dialog is handled on both computers.
           </Alert>
         </section>
       </div>
@@ -544,35 +545,53 @@ export function SettingsScreen({ controller }: { controller: AppController }) {
   const { state } = controller;
   return (
     <div className="screen">
-      <PageHeading eyebrow="COMPANION" title="Settings" description="Configure League, the server and desktop behavior." />
+      <PageHeading eyebrow="COMPANION" title="Settings" description={isWebDemo ? 'Review the isolated browser simulation settings.' : 'Configure League, the server and desktop behavior.'} />
       {state.error && <Alert>{state.error}</Alert>}
       <div className="settings-layout">
         <div className="settings-main">
-          <section className="panel settings-section">
-            <SectionHeader title="Connection" detail="League installation and matchmaking server." />
-            <label className="input-row"><span><strong>League installation</strong><small>{state.leagueInstallationPath ?? 'Automatic detection'}</small></span><Button onClick={() => void controller.chooseLeagueLocation()}>Select folder</Button></label>
-            <label className="input-stack" htmlFor="settings-server"><span><strong>Server address</strong><small>Domain or HTTP(S) address of the Pinkward backend.</small></span><input id="settings-server" value={state.serverAddress} onChange={(event) => controller.setServerAddress(event.target.value)} spellCheck={false} /></label>
-          </section>
+          {isWebDemo ? (
+            <section className="panel settings-section">
+              <SectionHeader title="Web demo isolation" detail="Reviewer-safe local simulation." />
+              <div className="demo-isolation-note"><Icon name="shield" size={19} /><span><strong>No external connection</strong><small>The demo does not call Riot, the League Client or the Pinkward production API.</small></span></div>
+            </section>
+          ) : (
+            <section className="panel settings-section">
+              <SectionHeader title="Connection" detail="League installation and matchmaking server." />
+              <label className="input-row"><span><strong>League installation</strong><small>{state.leagueInstallationPath ?? 'Automatic detection'}</small></span><Button onClick={() => void controller.chooseLeagueLocation()}>Select folder</Button></label>
+              <label className="input-stack" htmlFor="settings-server"><span><strong>Server address</strong><small>Domain or HTTP(S) address of the Pinkward backend.</small></span><input id="settings-server" value={state.serverAddress} onChange={(event) => controller.setServerAddress(event.target.value)} spellCheck={false} /></label>
+            </section>
+          )}
           <section className="panel settings-section">
             <SectionHeader title="Preferences" detail="Notification and launch behavior." />
-            <SettingToggle title="Desktop notifications" description="Notify me when a match is found or champion select begins." checked={state.settings.desktopNotifications} onChange={(value) => controller.updateSetting('desktopNotifications', value)} />
+            {!isWebDemo && <SettingToggle title="Desktop notifications" description="Notify me when a match is found or champion select begins." checked={state.settings.desktopNotifications} onChange={(value) => controller.updateSetting('desktopNotifications', value)} />}
             <SettingToggle title="Companion sounds" description="Play subtle cues for time-sensitive transitions." checked={state.settings.sounds} onChange={(value) => controller.updateSetting('sounds', value)} />
-            <SettingToggle title="Open League when lobby is ready" description="Launch League when a manual connection is required." checked={state.settings.launchLeagueOnLobby} onChange={(value) => controller.updateSetting('launchLeagueOnLobby', value)} />
+            {!isWebDemo && <SettingToggle title="Open League when lobby is ready" description="Launch League when a manual connection is required." checked={state.settings.launchLeagueOnLobby} onChange={(value) => controller.updateSetting('launchLeagueOnLobby', value)} />}
           </section>
           <section className="panel settings-section">
             <SectionHeader title="Developer tools" detail="Local workflow validation." />
-            <SettingToggle title="Simulation mode" description="Run the full workflow locally without a backend." checked={state.settings.demoMode} onChange={(value) => controller.updateSetting('demoMode', value)} />
+            {isWebDemo
+              ? <div className="demo-isolation-note"><Icon name="check" size={19} /><span><strong>Simulation mode locked on</strong><small>Production matchmaking cannot be enabled from this build.</small></span></div>
+              : <SettingToggle title="Simulation mode" description="Run the full workflow locally without a backend." checked={state.settings.demoMode} onChange={(value) => controller.updateSetting('demoMode', value)} />}
           </section>
         </div>
         <aside className="panel about-panel">
-          <SectionHeader title="Pinkward Companion" detail="Windows desktop edition" />
-          <div className="diagnostic-state"><span className={`status-icon status-icon--${state.league.running ? 'success' : 'warning'}`}><LeagueMark size={20} /></span><div><strong>{state.league.state.replaceAll('_', ' ')}</strong><small>{state.league.detail}</small></div></div>
-          <Button icon="external" fullWidth onClick={() => void controller.openLeague()}>Open League</Button>
-          <UpdateControl />
-          <details className="advanced-details">
-            <summary>Advanced technical status</summary>
-            <dl><div><dt>Installation</dt><dd>{state.league.installed ? 'Detected' : 'Unknown'}</dd></div><div><dt>Process</dt><dd>{state.league.running ? 'Running' : 'Not running'}</dd></div><div><dt>Automation</dt><dd>{state.league.automationAvailable ? 'Available' : 'Unavailable'}</dd></div><div><dt>Adapter</dt><dd>{state.league.adapterHealthy ? 'Healthy' : 'Unavailable'}</dd></div><div><dt>Observed</dt><dd>{new Date(state.league.observedAt).getFullYear() > 1970 ? new Date(state.league.observedAt).toLocaleTimeString() : 'Not yet'}</dd></div></dl>
-          </details>
+          <SectionHeader title="Pinkward Companion" detail={isWebDemo ? 'Browser demo edition' : 'Windows desktop edition'} />
+          {isWebDemo ? (
+            <>
+              <div className="diagnostic-state"><span className="status-icon status-icon--success"><LeagueMark size={20} /></span><div><strong>SIMULATED</strong><small>No Riot connection is attempted.</small></div></div>
+              <a className="button button--ghost button--full" href="https://pinkward.lol/download">Download Windows app</a>
+            </>
+          ) : (
+            <>
+              <div className="diagnostic-state"><span className={`status-icon status-icon--${state.league.running ? 'success' : 'warning'}`}><LeagueMark size={20} /></span><div><strong>{state.league.state.replaceAll('_', ' ')}</strong><small>{state.league.detail}</small></div></div>
+              <Button icon="external" fullWidth onClick={() => void controller.openLeague()}>Open League</Button>
+              <UpdateControl />
+              <details className="advanced-details">
+                <summary>Advanced technical status</summary>
+                <dl><div><dt>Installation</dt><dd>{state.league.installed ? 'Detected' : 'Unknown'}</dd></div><div><dt>Process</dt><dd>{state.league.running ? 'Running' : 'Not running'}</dd></div><div><dt>Automation</dt><dd>{state.league.automationAvailable ? 'Available' : 'Unavailable'}</dd></div><div><dt>Adapter</dt><dd>{state.league.adapterHealthy ? 'Healthy' : 'Unavailable'}</dd></div><div><dt>Observed</dt><dd>{new Date(state.league.observedAt).getFullYear() > 1970 ? new Date(state.league.observedAt).toLocaleTimeString() : 'Not yet'}</dd></div></dl>
+              </details>
+            </>
+          )}
         </aside>
       </div>
     </div>

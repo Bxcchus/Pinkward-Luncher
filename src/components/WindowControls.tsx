@@ -1,6 +1,8 @@
 import { Icon } from './Icon';
 
 export function WindowControls() {
+  if (!window.w3c) return null;
+
   return (
     <div className="window-controls" aria-label="Window controls">
       <button type="button" onClick={() => window.w3c?.window.minimize()} aria-label="Minimize window">

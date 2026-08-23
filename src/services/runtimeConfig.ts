@@ -3,6 +3,8 @@ const positiveNumber = (value: string | undefined, fallback: number): number => 
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
+export const isWebDemo = import.meta.env.VITE_WEB_DEMO === 'true';
+
 function isLoopback(hostname: string): boolean {
   return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]';
 }

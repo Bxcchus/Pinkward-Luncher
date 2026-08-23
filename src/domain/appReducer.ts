@@ -1,5 +1,5 @@
 import type { AppAction, AppState, MatchParticipant, Role } from './types';
-import { defaultServerAddress } from '../services/runtimeConfig';
+import { defaultServerAddress, isWebDemo } from '../services/runtimeConfig';
 
 const defaultLeagueStatus = {
   installed: false,
@@ -11,7 +11,7 @@ const defaultLeagueStatus = {
   detail: 'League status has not been observed yet.',
 };
 
-const demoFromEnvironment = import.meta.env.VITE_DEMO_MODE === 'true';
+const demoFromEnvironment = isWebDemo || import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const initialState: AppState = {
   screen: 'LOGIN',
@@ -68,6 +68,7 @@ export function hydrateInitialState(serializedSettings: string | null): AppState
     (Object.keys(settings) as Array<keyof AppState['settings']>).forEach((key) => {
       if (typeof parsed[key] === 'boolean') settings[key] = parsed[key];
     });
+    if (isWebDemo) settings.demoMode = true;
     return {
       ...initialState,
       settings,

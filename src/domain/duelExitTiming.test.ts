@@ -11,8 +11,8 @@ describe('1v1 Showdown exit timing', () => {
     expect(DUEL_LOSER_EXIT_DELAY_MS).toBe(5_000);
   });
 
-  it('disconnects the winner one second after the loser', () => {
+  it('disconnects the winner at the same five-second boundary', () => {
     expect(duelExitDelayMs(true)).toBe(DUEL_WINNER_EXIT_DELAY_MS);
-    expect(DUEL_WINNER_EXIT_DELAY_MS).toBe(6_000);
+    expect(DUEL_WINNER_EXIT_DELAY_MS).toBe(5_000);
   });
 });

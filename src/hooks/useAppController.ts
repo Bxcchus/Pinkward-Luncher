@@ -164,7 +164,7 @@ export function useAppController(): AppController {
       if (!exitedGame?.successful) {
         dispatch({
           type: 'SHOW_TOAST',
-          message: 'Result saved. Riot does not allow a clean early exit for this custom game; finish it normally or surrender. Pinkward will not crash League and create a Reconnect loop.',
+          message: 'Result saved, but Pinkward could not send Alt+F4 to the League game window. Close the game manually.',
         });
       }
     } finally {
@@ -386,7 +386,7 @@ export function useAppController(): AppController {
                     score,
                   },
                   notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  notificationBody: `${duelVictoryMessage(victory)} Result saved; Pinkward now requests League's native exit.`,
+                  notificationBody: `${duelVictoryMessage(victory)} Result saved; Pinkward will confirm closing both League game windows after five seconds.`,
                   acknowledgeServer: false,
                   inactivePolls: 0,
                   exitNotBeforeMs,
@@ -394,7 +394,7 @@ export function useAppController(): AppController {
                 dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
                 desktopNotification(
                   `${duelConditionLabel(victory.condition)} confirmed`,
-                  'The result is saved first. Pinkward will request League’s native exit after the result screen.',
+                  'The result is saved first. Pinkward will send Alt+F4 twice to both League game windows after five seconds.',
                   current.settings.desktopNotifications,
                 );
                 return;
@@ -918,7 +918,7 @@ export function useAppController(): AppController {
               score,
             },
             notificationTitle: localWon ? '1v1 victory' : '1v1 defeat',
-            notificationBody: 'The server-confirmed result is stored. Pinkward is waiting for Riot to release the custom game.',
+            notificationBody: 'The server-confirmed result is stored. Pinkward will confirm closing both League game windows after five seconds.',
             acknowledgeServer: true,
             inactivePolls: 0,
             exitNotBeforeMs,
@@ -926,7 +926,7 @@ export function useAppController(): AppController {
           dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
           desktopNotification(
             `${duelConditionLabel(snapshot.result!.winCondition)} confirmed`,
-            'The result is saved first. Pinkward will use Riot’s native exit if this custom game permits it.',
+            'The result is saved first. Pinkward will send Alt+F4 twice to both League game windows after five seconds.',
             stateRef.current.settings.desktopNotifications,
           );
         });

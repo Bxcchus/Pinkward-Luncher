@@ -13,6 +13,7 @@ import {
   runningInstallationDirectory,
 } from './LcuHttpClient.js';
 import { RiotClientHttpClient, RiotClientHttpError } from './RiotClientHttpClient.js';
+import { simulateLeagueGameAltF4 } from './WindowsLeagueGameExit.js';
 import type {
   AdapterCommandResult,
   BotFillRole,
@@ -520,38 +521,22 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
         return commandResult('SUCCESS', 'LCU_DUEL_GAME_ALREADY_EXITED', mapGameflowState(phase), true);
       }
 
-      const [earlyExitEnabled, earlyExitQuitEnabled] = await Promise.all([
-        client.get<boolean>('/lol-gameflow/v1/early-exit-enabled').catch(() => false),
-        client.get<boolean>('/lol-gameflow/v1/early-exit-quit-enabled').catch(() => false),
-      ]);
-      if (!earlyExitEnabled && !earlyExitQuitEnabled) {
-        // Killing League of Legends.exe only disconnects the local process. The
-        // Riot game server remains alive, offers Reconnect and may auto-pause.
-        // Never report that crash as a completed duel exit.
-        return commandResult('UNSUPPORTED', 'LCU_NATIVE_DUEL_EXIT_UNAVAILABLE', 'IN_GAME', false);
+      const signal = await simulateLeagueGameAltF4();
+      if (signal === 'ALT_F4_SENT') {
+        return commandResult('SUCCESS', 'WINDOWS_DUEL_ALT_F4_SENT', 'IN_GAME', true);
       }
-
-      try {
-        await client.post<unknown>('/lol-gameflow/v1/early-exit');
-        for (let attempt = 0; attempt < 40; attempt += 1) {
-          await delay(250);
-          const observedPhase = await this.phase(client);
-          if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
-            return commandResult(
-              'SUCCESS',
-              'LCU_DUEL_GAME_EXITED',
-              mapGameflowState(observedPhase),
-              true,
-            );
-          }
-          if (observedPhase === 'Reconnect' && attempt % 4 === 0) {
-            await client.post<boolean>('/lol-gameflow/v1/session/request-lobby').catch(() => false);
-          }
+      if (signal === 'GAME_WINDOW_NOT_FOUND') {
+        const observedPhase = await this.phase(client);
+        if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
+          return commandResult(
+            'SUCCESS',
+            'WINDOWS_DUEL_GAME_ALREADY_CLOSED',
+            mapGameflowState(observedPhase),
+            true,
+          );
         }
-      } catch (error) {
-        return this.failedCommand(error, 'LCU_NATIVE_DUEL_EXIT_FAILED');
       }
-      return commandResult('UNKNOWN', 'LCU_NATIVE_DUEL_EXIT_NOT_CONFIRMED', 'IN_GAME', true);
+      return commandResult('UNSUPPORTED', `WINDOWS_DUEL_${signal}`, 'IN_GAME', false);
     } catch (error) {
       return this.failedCommand(error, 'DUEL_GAME_EXIT_FAILED');
     }

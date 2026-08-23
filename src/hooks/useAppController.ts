@@ -71,6 +71,7 @@ export interface AppController {
   confirmManualLobbyCreated(): void;
   playAgain(): Promise<void>;
   finishDemoGame(): void;
+  setMatchmakingMode(mode: 'DUEL_1V1' | 'COMMUNITY_5V5'): void;
   updateSetting(key: keyof AppSettings, value: boolean): void;
   copyText(value: string, label: string): Promise<void>;
   openLeague(): Promise<void>;
@@ -780,7 +781,7 @@ export function useAppController(): AppController {
       const player = stateRef.current.player;
       if (!player || snapshot.status === 'WAITING' || !snapshot.matchId) return;
       if (snapshot.status === 'CANCELLED') {
-        dispatch({ type: 'SET_ERROR', message: 'The other player left the 1v1 test.' });
+        dispatch({ type: 'SET_ERROR', message: 'The other player left the 1v1 match.' });
         void api.leaveDuelQueue().catch(() => undefined);
         dispatch({ type: 'LEAVE_QUEUE' });
         return;
@@ -1615,6 +1616,18 @@ export function useAppController(): AppController {
     dispatch({ type: 'SET_SETTING', key, value });
   }, []);
 
+  const setMatchmakingMode = useCallback((mode: 'DUEL_1V1' | 'COMMUNITY_5V5') => {
+    const current = stateRef.current;
+    if (mode === 'DUEL_1V1' && (current.partyId || current.partyMembers.length > 0)) {
+      dispatch({
+        type: 'SHOW_TOAST',
+        message: 'Leave your party before switching to 1v1 First Blood.',
+      });
+      return;
+    }
+    dispatch({ type: 'SET_SETTING', key: 'duelMode', value: mode === 'DUEL_1V1' });
+  }, []);
+
   const confirmManualLobbyCreated = useCallback(() => {
     const command = stateRef.current.manualCreate;
     if (!command || command.confirmed) return;
@@ -1654,6 +1667,7 @@ export function useAppController(): AppController {
     confirmManualLobbyCreated,
     playAgain,
     finishDemoGame,
+    setMatchmakingMode,
     updateSetting,
     copyText,
     openLeague,

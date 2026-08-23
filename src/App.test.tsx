@@ -83,6 +83,29 @@ describe('Pinkward companion', () => {
     expect(screen.getByText('Community 5v5')).toBeInTheDocument();
   });
 
+  it('offers 1v1 First Blood as a permanent matchmaking mode', async () => {
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /simulation mode/i }));
+    fireEvent.change(screen.getByLabelText(/riot id/i), { target: { value: 'Duelist' } });
+    fireEvent.change(screen.getByLabelText(/tag line/i), { target: { value: 'EUW' } });
+    fireEvent.click(screen.getByRole('button', { name: /enter demo/i }));
+
+    await waitFor(() => screen.getByRole('button', { name: /start matchmaking/i }));
+    fireEvent.click(screen.getByRole('button', { name: /start matchmaking/i }));
+
+    const duel = screen.getByRole('button', { name: /1v1 first blood/i });
+    const fiveVersusFive = screen.getByRole('button', { name: /5v5 community draft/i });
+    expect(duel).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(fiveVersusFive);
+    expect(fiveVersusFive).toHaveAttribute('aria-pressed', 'true');
+    expect(duel).toHaveAttribute('aria-pressed', 'false');
+
+    fireEvent.click(duel);
+    expect(duel).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('opens the community room and sends a message in simulation mode', async () => {
     render(<App />);
 

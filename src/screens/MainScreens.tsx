@@ -109,7 +109,7 @@ export function HomeScreen({ controller }: { controller: AppController }) {
           <dl className="compact-metrics">
             <div><dt>Players searching</dt><dd>{state.playersSearching}</dd></div>
             <div><dt>Estimated wait</dt><dd>~{seconds(state.estimatedWaitSeconds)}</dd></div>
-            <div><dt>Mode</dt><dd>{state.settings.duelMode ? '1v1 test' : 'Community 5v5'}</dd></div>
+            <div><dt>Mode</dt><dd>{state.settings.duelMode ? '1v1 First Blood' : 'Community 5v5'}</dd></div>
           </dl>
           <Button tone="primary" icon="search" fullWidth onClick={() => controller.navigate('PLAY')}>Find a match</Button>
         </section>
@@ -153,7 +153,7 @@ function QueueSummary({ controller, searching = false, pending = false, onFind }
         </div>
       )}
       <dl className="compact-metrics">
-        <div><dt><Icon name="spark" size={18} /><span>Mode</span></dt><dd>{state.settings.duelMode ? '1v1 test' : 'Community 5v5'}</dd></div>
+        <div><dt><Icon name="spark" size={18} /><span>Mode</span></dt><dd>{state.settings.duelMode ? '1v1 First Blood' : 'Community 5v5'}</dd></div>
         <div><dt><Icon name="clock" size={18} /><span>Estimated wait</span></dt><dd>{state.settings.duelMode ? '~ 0:45' : `~${seconds(state.estimatedWaitSeconds)}`}</dd></div>
         <div><dt><Icon name="server" size={18} /><span>Server</span></dt><dd className={state.serverStatus === 'DISCONNECTED' ? 'text-danger' : 'text-success'}>{state.serverStatus}</dd></div>
         <div><dt><LeagueMark size={18} /><span>League</span></dt><dd className={leagueReady ? 'text-success' : state.league.running ? 'text-warning' : 'text-danger'}>{leagueReady ? 'Detected' : state.league.running ? 'Manual fallback' : 'Unavailable'}</dd></div>
@@ -187,6 +187,30 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
         </div>}
       />
       <div className="play-layout">
+        <section className="match-mode-selector" aria-label="Matchmaking mode">
+          <button
+            type="button"
+            className={`match-mode-option${state.settings.duelMode ? ' match-mode-option--active' : ''}`}
+            aria-label="1v1 First Blood — Howling Abyss"
+            aria-pressed={state.settings.duelMode}
+            disabled={searching || Boolean(state.partyId) || state.partyMembers.length > 0}
+            onClick={() => controller.setMatchmakingMode('DUEL_1V1')}
+          >
+            <span className="match-mode-option__players">1V1</span>
+            <span><strong>First Blood</strong><small>Howling Abyss · First kill wins</small></span>
+          </button>
+          <button
+            type="button"
+            className={`match-mode-option${!state.settings.duelMode ? ' match-mode-option--active' : ''}`}
+            aria-label="5v5 Community Draft — Summoner's Rift"
+            aria-pressed={!state.settings.duelMode}
+            disabled={searching}
+            onClick={() => controller.setMatchmakingMode('COMMUNITY_5V5')}
+          >
+            <span className="match-mode-option__players">5V5</span>
+            <span><strong>Community Draft</strong><small>Summoner's Rift · Tournament draft</small></span>
+          </button>
+        </section>
         <section className={`panel role-panel${searching ? ' role-panel--locked' : ''}`} aria-label="Role loadout">
           <RoleLoadout primaryRole={state.primaryRole} secondaryRole={state.secondaryRole} disabled={searching} onPrimaryChange={controller.setPrimaryRole} onSecondaryChange={controller.setSecondaryRole} />
         </section>
@@ -536,8 +560,7 @@ export function SettingsScreen({ controller }: { controller: AppController }) {
             <SettingToggle title="Open League when lobby is ready" description="Launch League when a manual connection is required." checked={state.settings.launchLeagueOnLobby} onChange={(value) => controller.updateSetting('launchLeagueOnLobby', value)} />
           </section>
           <section className="panel settings-section">
-            <SectionHeader title="Test modes" detail="Local and two-player validation tools." />
-            <SettingToggle title="1v1 test queue" description="Match as soon as two friends are searching." checked={state.settings.duelMode} onChange={(value) => controller.updateSetting('duelMode', value)} />
+            <SectionHeader title="Developer tools" detail="Local workflow validation." />
             <SettingToggle title="Simulation mode" description="Run the full workflow locally without a backend." checked={state.settings.demoMode} onChange={(value) => controller.updateSetting('demoMode', value)} />
           </section>
         </div>

@@ -13,6 +13,17 @@ describe('appReducer', () => {
     expect(hydrated.serverStatus).toBe('SIMULATION');
   });
 
+  it('persists the selected permanent matchmaking mode', () => {
+    const community = appReducer(initialState, {
+      type: 'SET_SETTING',
+      key: 'duelMode',
+      value: false,
+    });
+    const hydrated = hydrateInitialState(JSON.stringify(community.settings));
+
+    expect(hydrated.settings.duelMode).toBe(false);
+  });
+
   it('keeps primary and secondary roles distinct by swapping them', () => {
     const state = { ...initialState, primaryRole: 'MID' as const, secondaryRole: 'JUNGLE' as const };
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { appReducer, hydrateInitialState, initialState } from '../domain/appReducer';
 import { createDemoLobby, createDemoParticipants, createLocalBotParticipants } from '../domain/demo';
+import { duelExitDelayMs } from '../domain/duelExitTiming';
 import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
   AppSettings,
@@ -51,6 +52,7 @@ interface PendingDuelCompletion {
   notificationBody: string;
   acknowledgeServer: boolean;
   inactivePolls: number;
+  exitNotBeforeMs: number;
 }
 
 function duelConditionLabel(condition: DuelWinCondition | null | undefined): string {
@@ -138,11 +140,46 @@ export function useAppController(): AppController {
   const duelVictoryChecksInFlightRef = useRef(new Set<string>());
   const reportedDuelVictoryRef = useRef(new Set<string>());
   const pendingDuelCompletionsRef = useRef(new Map<string, PendingDuelCompletion>());
+  const duelExitTimersRef = useRef(new Map<string, number>());
   const duelExitGuardInFlightRef = useRef(new Set<string>());
   const duelCompletionInFlightRef = useRef(new Set<string>());
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
+
+  const exitDuelGame = useCallback(async (matchId: string) => {
+    if (!window.w3c || duelExitGuardInFlightRef.current.has(matchId)) return;
+    duelExitGuardInFlightRef.current.add(matchId);
+    try {
+      const exitedGame = await window.w3c.league.exitDuelGame().catch(() => null);
+      if (!exitedGame?.successful) {
+        dispatch({
+          type: 'SHOW_TOAST',
+          message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
+        });
+      }
+    } finally {
+      duelExitGuardInFlightRef.current.delete(matchId);
+    }
+  }, []);
+
+  const scheduleDuelExit = useCallback((matchId: string, localPlayerWon: boolean): number => {
+    const exitNotBeforeMs = Date.now() + duelExitDelayMs(localPlayerWon);
+    if (duelExitTimersRef.current.has(matchId)) {
+      return pendingDuelCompletionsRef.current.get(matchId)?.exitNotBeforeMs ?? exitNotBeforeMs;
+    }
+    const timer = window.setTimeout(() => {
+      duelExitTimersRef.current.delete(matchId);
+      void exitDuelGame(matchId);
+    }, duelExitDelayMs(localPlayerWon));
+    duelExitTimersRef.current.set(matchId, timer);
+    return exitNotBeforeMs;
+  }, [exitDuelGame]);
+
+  useEffect(() => () => {
+    duelExitTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    duelExitTimersRef.current.clear();
+  }, []);
 
   useEffect(() => {
     stateRef.current = state;
@@ -218,11 +255,11 @@ export function useAppController(): AppController {
             }
             if (status.state === 'IN_GAME') {
               pendingDuel.inactivePolls = 0;
-              if (window.w3c && !duelExitGuardInFlightRef.current.has(matchId)) {
-                duelExitGuardInFlightRef.current.add(matchId);
-                void window.w3c.league.exitDuelGame()
-                  .catch(() => undefined)
-                  .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
+              if (
+                Date.now() >= pendingDuel.exitNotBeforeMs &&
+                !duelExitTimersRef.current.has(matchId)
+              ) {
+                void exitDuelGame(matchId);
               }
               return;
             }
@@ -327,6 +364,7 @@ export function useAppController(): AppController {
                   });
                   return;
                 }
+                const exitNotBeforeMs = scheduleDuelExit(matchId, victory.localPlayerWon);
                 pendingDuelCompletionsRef.current.set(matchId, {
                   result: {
                     id: matchId,
@@ -337,26 +375,17 @@ export function useAppController(): AppController {
                     score,
                   },
                   notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  notificationBody: `${duelVictoryMessage(victory)} Waiting for Riot to close the custom game.`,
+                  notificationBody: `${duelVictoryMessage(victory)} The loser exits after 5 seconds, then the winner after 6 seconds.`,
                   acknowledgeServer: false,
                   inactivePolls: 0,
+                  exitNotBeforeMs,
                 });
                 dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
                 desktopNotification(
                   `${duelConditionLabel(victory.condition)} confirmed`,
-                  'Do not press Reconnect. Pinkward is closing the custom game for both players.',
+                  'Do not reconnect. The loser exits in 5 seconds, then the winner in 6 seconds.',
                   current.settings.desktopNotifications,
                 );
-                duelExitGuardInFlightRef.current.add(matchId);
-                const exitedGame = await window.w3c.league.exitDuelGame()
-                  .catch(() => null)
-                  .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
-                if (!exitedGame?.successful) {
-                  dispatch({
-                    type: 'SHOW_TOAST',
-                    message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
-                  });
-                }
                 return;
               }
             } finally {
@@ -542,7 +571,7 @@ export function useAppController(): AppController {
       active = false;
       window.clearInterval(interval);
     };
-  }, [api]);
+  }, [api, exitDuelGame, scheduleDuelExit]);
 
   const runCommandOnce = useCallback(
     (commandId: string, operation: () => Promise<ClientEvent>) => {
@@ -865,6 +894,7 @@ export function useAppController(): AppController {
           const durationSeconds = snapshot.result!.durationSeconds
             ?? stateRef.current.inGameElapsedSeconds;
           const score = snapshot.result!.score ?? '1 — 0';
+          const exitNotBeforeMs = scheduleDuelExit(matchId, localWon);
           pendingDuelCompletionsRef.current.set(matchId, {
             result: {
               id: matchId,
@@ -880,23 +910,14 @@ export function useAppController(): AppController {
             notificationBody: 'Riot released the custom game. The server-confirmed result is recorded.',
             acknowledgeServer: true,
             inactivePolls: 0,
+            exitNotBeforeMs,
           });
           dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
           desktopNotification(
             `${duelConditionLabel(snapshot.result!.winCondition)} confirmed`,
-            'Do not press Reconnect. Pinkward is closing the custom game for both players.',
+            'Do not reconnect. The loser exits in 5 seconds, then the winner in 6 seconds.',
             stateRef.current.settings.desktopNotifications,
           );
-          duelExitGuardInFlightRef.current.add(matchId);
-          const exitedGame = await window.w3c!.league.exitDuelGame()
-            .catch(() => null)
-            .finally(() => duelExitGuardInFlightRef.current.delete(matchId));
-          if (!exitedGame?.successful) {
-            dispatch({
-              type: 'SHOW_TOAST',
-              message: 'Riot still marks the game reconnectable. Do not reconnect; the exit guard remains active.',
-            });
-          }
         });
         return;
       }
@@ -1027,7 +1048,7 @@ export function useAppController(): AppController {
       active = false;
       window.clearInterval(interval);
     };
-  }, [api, state.duelMatch, state.player, state.screen, state.settings.demoMode, state.settings.duelMode]);
+  }, [api, scheduleDuelExit, state.duelMatch, state.player, state.screen, state.settings.demoMode, state.settings.duelMode]);
 
   useEffect(() => {
     if (

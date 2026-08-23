@@ -346,11 +346,11 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
   if (lifecycle === 'DUEL_ENDING') {
     return (
       <div className="screen">
-        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Pinkward recorded the winning objective and is waiting for Riot to release both players." />
+        <PageHeading eyebrow="DUEL COMPLETE" title="Closing the custom game" description="Result recorded. Pinkward disconnects the loser after 5 seconds, then the winner after 6 seconds." />
         <section className="panel ingame-dashboard">
           <div className="game-clock"><span className="pulse-mini" /><small>Server synchronization</small><strong>PLEASE WAIT</strong><span>Exit guard active</span></div>
           <Alert tone="info" title="Do not press Reconnect">
-            League can briefly show a Reconnect button after both game processes close. Pinkward will keep the duel closed until Riot confirms that the custom game has ended.
+            The one-second separation lets Riot observe the defeat before the winner exits. Pinkward keeps the duel closed until Riot confirms that the custom game has ended.
           </Alert>
         </section>
       </div>

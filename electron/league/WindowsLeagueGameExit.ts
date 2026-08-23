@@ -27,20 +27,18 @@ public static class PinkwardLeagueWindow {
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte virtualKey, byte scanCode, uint flags, UIntPtr extraInfo);
 
-    private static bool SendAltF4(IntPtr hWnd) {
-        if (hWnd == IntPtr.Zero || !SetForegroundWindow(hWnd)) return false;
-        System.Threading.Thread.Sleep(120);
+    private static void PressAltF4() {
         keybd_event(VK_MENU, 0, 0, UIntPtr.Zero);
         keybd_event(VK_F4, 0, 0, UIntPtr.Zero);
         keybd_event(VK_F4, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
         keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
-        return true;
     }
 
     public static bool SendAltF4Twice(IntPtr hWnd) {
-        if (!SendAltF4(hWnd)) return false;
-        System.Threading.Thread.Sleep(850);
-        SendAltF4(hWnd);
+        if (hWnd == IntPtr.Zero || !SetForegroundWindow(hWnd)) return false;
+        System.Threading.Thread.Sleep(120);
+        PressAltF4();
+        PressAltF4();
         return true;
     }
 }

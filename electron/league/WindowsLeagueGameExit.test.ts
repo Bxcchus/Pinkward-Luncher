@@ -26,7 +26,7 @@ describe('Windows League game Alt+F4 fallback', () => {
     expect(script).toContain("Get-Process -Name 'League of Legends'");
     expect(script).toContain('SendAltF4Twice');
     expect(script.match(/PressAltF4\(\);/g)).toHaveLength(2);
-    expect(script).not.toContain('Sleep(850)');
+    expect(script).toContain('Sleep(750)');
   });
 
   it('reports a missing League game window without targeting another application', async () => {

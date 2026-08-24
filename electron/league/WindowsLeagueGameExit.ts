@@ -38,6 +38,8 @@ public static class PinkwardLeagueWindow {
         if (hWnd == IntPtr.Zero || !SetForegroundWindow(hWnd)) return false;
         System.Threading.Thread.Sleep(120);
         PressAltF4();
+        // Give League enough time to render and focus its leave-confirmation dialog.
+        System.Threading.Thread.Sleep(750);
         PressAltF4();
         return true;
     }

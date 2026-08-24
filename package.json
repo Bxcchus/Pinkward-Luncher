@@ -1,6 +1,6 @@
 {
   "name": "w3c-lol-desktop",
-  "version": "0.3.18",
+  "version": "0.3.19",
   "private": true,
   "description": "Pinkward Windows companion",
   "author": "Pinkward Contributors",
@@ -21,7 +21,8 @@
     "test:watch": "vitest",
     "test:lcu:firstblood": "npm run build:electron && node scripts/probe-firstblood-1x1.mjs",
     "check": "npm run lint && npm run test && npm run build",
-    "package:win": "npm run check && electron-builder --win --x64"
+    "package:win": "npm run check && electron-builder --win --x64",
+    "package:win:unsigned": "npm run check && electron-builder --win --x64 --publish never --config.forceCodeSigning=false"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

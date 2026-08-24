@@ -24,6 +24,23 @@ describe('appReducer', () => {
     expect(hydrated.settings.duelMode).toBe(false);
   });
 
+  it('stores public profile preferences and their saving state', () => {
+    const saving = appReducer(initialState, {
+      type: 'SET_WEB_PREFERENCES_SAVING',
+      saving: true,
+    });
+    const loaded = appReducer(saving, {
+      type: 'SET_WEB_PREFERENCES',
+      preferences: { publicProfile: true, showMatchHistory: false },
+    });
+
+    expect(loaded.webPreferencesSaving).toBe(true);
+    expect(loaded.webPreferences).toEqual({
+      publicProfile: true,
+      showMatchHistory: false,
+    });
+  });
+
   it('keeps primary and secondary roles distinct by swapping them', () => {
     const state = { ...initialState, primaryRole: 'MID' as const, secondaryRole: 'JUNGLE' as const };
 

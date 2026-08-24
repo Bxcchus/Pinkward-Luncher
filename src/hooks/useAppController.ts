@@ -18,6 +18,7 @@ import type {
   MatchSummary,
   PlayerIdentity,
   Role,
+  WebPreferences,
 } from '../domain/types';
 import { ApiError, W3cApiClient } from '../services/apiClient';
 import { handleLeagueCommand, toLobbyCredentials } from '../services/leagueCommandHandler';
@@ -111,6 +112,7 @@ export interface AppController {
   finishDemoGame(): void;
   setMatchmakingMode(mode: 'DUEL_1V1' | 'COMMUNITY_5V5'): void;
   updateSetting(key: keyof AppSettings, value: boolean): void;
+  updateWebPreference(key: keyof WebPreferences, value: boolean): Promise<void>;
   copyText(value: string, label: string): Promise<void>;
   openLeague(): Promise<void>;
   chooseLeagueLocation(): Promise<void>;
@@ -148,6 +150,7 @@ export function useAppController(): AppController {
   const inactiveGameflowPollsRef = useRef(new Map<string, number>());
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
+  const webPreferencesUpdateInFlightRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -577,6 +580,15 @@ export function useAppController(): AppController {
       dispatch({ type: 'SET_CHAT_MESSAGES', messages: [...generalMessages, ...duelMessages, ...communityMessages] });
     } catch {
       // The live socket can continue delivering messages if history loading fails temporarily.
+    }
+  }, [api]);
+
+  const refreshWebPreferences = useCallback(async () => {
+    try {
+      const preferences = await api.getWebPreferences();
+      dispatch({ type: 'SET_WEB_PREFERENCES', preferences });
+    } catch {
+      // Privacy controls remain unavailable until the authenticated API can be reached again.
     }
   }, [api]);
 
@@ -1349,6 +1361,7 @@ export function useAppController(): AppController {
           dispatch({ type: 'SET_PARTY_CONTEXT', context: party });
           await refreshStats();
           await refreshChat();
+          await refreshWebPreferences();
         }
       } catch (error) {
         dispatch({ type: 'SET_SERVER_STATUS', status: 'DISCONNECTED' });
@@ -1360,7 +1373,7 @@ export function useAppController(): AppController {
         });
       }
     },
-    [api, refreshChat, refreshStats],
+    [api, refreshChat, refreshStats, refreshWebPreferences],
   );
 
   const sendChatMessage = useCallback(async (content: string, channel: ChatChannel): Promise<boolean> => {
@@ -1652,6 +1665,52 @@ export function useAppController(): AppController {
     dispatch({ type: 'SET_SETTING', key, value });
   }, []);
 
+  const updateWebPreference = useCallback(async (
+    key: keyof WebPreferences,
+    value: boolean,
+  ): Promise<void> => {
+    const current = stateRef.current;
+    if (
+      !current.player ||
+      current.settings.demoMode ||
+      current.webPreferences === null ||
+      webPreferencesUpdateInFlightRef.current
+    ) return;
+    if (key === 'showMatchHistory' && !current.webPreferences.publicProfile) return;
+
+    const next: WebPreferences = {
+      ...current.webPreferences,
+      [key]: value,
+    };
+    if (key === 'publicProfile' && !value) next.showMatchHistory = false;
+
+    webPreferencesUpdateInFlightRef.current = true;
+    dispatch({ type: 'SET_WEB_PREFERENCES_SAVING', saving: true });
+    dispatch({ type: 'SET_ERROR', message: null });
+    try {
+      const preferences = await api.updateWebPreferences(next);
+      dispatch({ type: 'SET_WEB_PREFERENCES', preferences });
+      dispatch({
+        type: 'SHOW_TOAST',
+        message: key === 'publicProfile'
+          ? preferences.publicProfile
+            ? 'Your profile is now visible on the Pinkward leaderboard'
+            : 'Your Pinkward profile is private'
+          : preferences.showMatchHistory
+            ? 'Your confirmed match history is now public'
+            : 'Your match history is private',
+      });
+    } catch {
+      dispatch({
+        type: 'SET_ERROR',
+        message: 'Your public profile preference could not be saved. Please try again.',
+      });
+    } finally {
+      webPreferencesUpdateInFlightRef.current = false;
+      dispatch({ type: 'SET_WEB_PREFERENCES_SAVING', saving: false });
+    }
+  }, [api]);
+
   const setMatchmakingMode = useCallback((mode: 'DUEL_1V1' | 'COMMUNITY_5V5') => {
     const current = stateRef.current;
     if (mode === 'DUEL_1V1' && current.partyMembers.length > 0) {
@@ -1705,6 +1764,7 @@ export function useAppController(): AppController {
     finishDemoGame,
     setMatchmakingMode,
     updateSetting,
+    updateWebPreference,
     copyText,
     openLeague,
     chooseLeagueLocation,

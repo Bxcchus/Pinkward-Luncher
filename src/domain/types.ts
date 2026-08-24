@@ -216,6 +216,11 @@ export interface AppSettings {
   launchLeagueOnLobby: boolean;
 }
 
+export interface WebPreferences {
+  publicProfile: boolean;
+  showMatchHistory: boolean;
+}
+
 export interface AppState {
   screen: AppScreen;
   player: PlayerIdentity | null;
@@ -252,6 +257,8 @@ export interface AppState {
   stats: PlayerStats | null;
   chatMessages: ChatMessage[];
   unreadChatMessages: number;
+  webPreferences: WebPreferences | null;
+  webPreferencesSaving: boolean;
   settings: AppSettings;
   toast: string | null;
   error: string | null;
@@ -302,6 +309,8 @@ export type AppAction =
   | { type: 'SET_STATS'; stats: PlayerStats }
   | { type: 'SET_CHAT_MESSAGES'; messages: ChatMessage[] }
   | { type: 'RECEIVE_CHAT_MESSAGE'; message: ChatMessage }
+  | { type: 'SET_WEB_PREFERENCES'; preferences: WebPreferences }
+  | { type: 'SET_WEB_PREFERENCES_SAVING'; saving: boolean }
   | { type: 'PLAY_AGAIN' }
   | { type: 'SET_SETTING'; key: keyof AppSettings; value: boolean }
   | { type: 'SHOW_TOAST'; message: string }

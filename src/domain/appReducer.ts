@@ -49,6 +49,8 @@ export const initialState: AppState = {
   stats: null,
   chatMessages: [],
   unreadChatMessages: 0,
+  webPreferences: null,
+  webPreferencesSaving: false,
   settings: {
     duelMode: true,
     demoMode: demoFromEnvironment,
@@ -369,6 +371,16 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         ...state,
         chatMessages: [...state.chatMessages, action.message].slice(-300),
         unreadChatMessages: state.screen === 'CHAT' ? 0 : Math.min(99, state.unreadChatMessages + 1),
+      };
+    case 'SET_WEB_PREFERENCES':
+      return {
+        ...state,
+        webPreferences: action.preferences,
+      };
+    case 'SET_WEB_PREFERENCES_SAVING':
+      return {
+        ...state,
+        webPreferencesSaving: action.saving,
       };
     case 'PLAY_AGAIN':
       return {

@@ -559,8 +559,8 @@ export function ChatScreen({ controller }: { controller: AppController }) {
   );
 }
 
-function SettingToggle({ title, description, checked, onChange }: { title: string; description: string; checked: boolean; onChange(value: boolean): void }) {
-  return <label className="setting-row"><span><strong>{title}</strong><small>{description}</small></span><span className="toggle"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><i /></span></label>;
+function SettingToggle({ title, description, checked, disabled = false, onChange }: { title: string; description: string; checked: boolean; disabled?: boolean; onChange(value: boolean): void }) {
+  return <label className={`setting-row${disabled ? ' setting-row--disabled' : ''}`}><span><strong>{title}</strong><small>{description}</small></span><span className="toggle"><input type="checkbox" checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} /><i /></span></label>;
 }
 
 export function SettingsScreen({ controller }: { controller: AppController }) {
@@ -589,6 +589,27 @@ export function SettingsScreen({ controller }: { controller: AppController }) {
             <SettingToggle title="Companion sounds" description="Play subtle cues for time-sensitive transitions." checked={state.settings.sounds} onChange={(value) => controller.updateSetting('sounds', value)} />
             {!isWebDemo && <SettingToggle title="Open League when lobby is ready" description="Launch League when a manual connection is required." checked={state.settings.launchLeagueOnLobby} onChange={(value) => controller.updateSetting('launchLeagueOnLobby', value)} />}
           </section>
+          {!isWebDemo && (
+            <section className="panel settings-section">
+              <SectionHeader title="Leaderboard & privacy" detail="Choose what Pinkward can publish on the website." />
+              <SettingToggle
+                title="Appear on the public leaderboard"
+                description={state.webPreferences === null
+                  ? 'Connect to the Pinkward server to manage your public profile.'
+                  : 'Publish your Riot ID, region and confirmed Pinkward results on play.pinkward.lol.'}
+                checked={state.webPreferences?.publicProfile ?? false}
+                disabled={state.webPreferences === null || state.webPreferencesSaving}
+                onChange={(value) => void controller.updateWebPreference('publicProfile', value)}
+              />
+              <SettingToggle
+                title="Show confirmed match history"
+                description="Allow visitors to view the confirmed matches attached to your public profile."
+                checked={state.webPreferences?.showMatchHistory ?? false}
+                disabled={state.webPreferences === null || state.webPreferencesSaving || !state.webPreferences.publicProfile}
+                onChange={(value) => void controller.updateWebPreference('showMatchHistory', value)}
+              />
+            </section>
+          )}
           <section className="panel settings-section">
             <SectionHeader title="Developer tools" detail="Local workflow validation." />
             {isWebDemo

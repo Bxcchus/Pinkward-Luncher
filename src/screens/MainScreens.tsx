@@ -354,11 +354,11 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
   if (lifecycle === 'DUEL_ENDING') {
     return (
       <div className="screen">
-        <PageHeading eyebrow="DUEL COMPLETE" title="Result saved" description="The raw result is durable. Statistics are calculated afterward while League closes the custom game." action={<Button tone="ghost" icon="external" onClick={() => void controller.openLeague()}>Open League</Button>} />
+        <PageHeading eyebrow="DUEL COMPLETE" title="Result saved" description="The raw result is durable. Statistics are calculated afterward while both players leave the custom game." action={<Button tone="ghost" icon="external" onClick={() => void controller.openLeague()}>Open League</Button>} />
         <section className="panel ingame-dashboard">
-          <div className="game-clock"><span className="pulse-mini" /><small>Automatic exit</small><strong>RESULT SAFE</strong><span>Closing both game windows</span></div>
+          <div className="game-clock"><span className="pulse-mini" /><small>Manual exit</small><strong>RESULT SAFE</strong><span>Leave the custom game in League</span></div>
           <Alert tone="info" title="The result is already stored">
-            Five seconds after the winning condition, Pinkward sends Alt+F4 twice to each League game window so the confirmation dialog is handled on both computers.
+            Pinkward has saved the winning condition. Both players can now leave the custom game manually; the recorded result will not change.
           </Alert>
         </section>
       </div>

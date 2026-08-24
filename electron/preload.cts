@@ -41,7 +41,6 @@ const leagueBridge = {
   balanceDuelTeams: () => ipcRenderer.invoke('league:balance-duel-teams'),
   startGame: () => ipcRenderer.invoke('league:start-game'),
   startDuelGame: () => ipcRenderer.invoke('league:start-duel-game'),
-  exitDuelGame: () => ipcRenderer.invoke('league:exit-duel-game'),
   startBotGame: () => ipcRenderer.invoke('league:start-bot-game'),
   setPositionPreferences: (
     primaryRole: BotLobbyConfiguration['playerRole'],

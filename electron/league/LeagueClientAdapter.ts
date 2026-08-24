@@ -21,7 +21,6 @@ export interface LeagueClientAdapter {
   balanceDuelTeams(): Promise<AdapterCommandResult>;
   startGame(): Promise<AdapterCommandResult>;
   startDuelGame(): Promise<AdapterCommandResult>;
-  exitDuelGame(): Promise<AdapterCommandResult>;
   startBotGame(): Promise<AdapterCommandResult>;
   setPositionPreferences(
     primaryRole: BotFillRole,

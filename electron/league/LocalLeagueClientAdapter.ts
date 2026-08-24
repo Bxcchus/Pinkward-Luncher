@@ -13,7 +13,6 @@ import {
   runningInstallationDirectory,
 } from './LcuHttpClient.js';
 import { RiotClientHttpClient, RiotClientHttpError } from './RiotClientHttpClient.js';
-import { simulateLeagueGameAltF4 } from './WindowsLeagueGameExit.js';
 import type {
   AdapterCommandResult,
   BotFillRole,
@@ -511,35 +510,6 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
 
   async startDuelGame(): Promise<AdapterCommandResult> {
     return this.startValidatedGame('DUEL');
-  }
-
-  async exitDuelGame(): Promise<AdapterCommandResult> {
-    try {
-      const client = await LcuHttpClient.connect(this.installationDirectory);
-      const phase = await this.phase(client);
-      if (phase !== 'InProgress' && phase !== 'Reconnect') {
-        return commandResult('SUCCESS', 'LCU_DUEL_GAME_ALREADY_EXITED', mapGameflowState(phase), true);
-      }
-
-      const signal = await simulateLeagueGameAltF4();
-      if (signal === 'ALT_F4_SENT') {
-        return commandResult('SUCCESS', 'WINDOWS_DUEL_ALT_F4_SENT', 'IN_GAME', true);
-      }
-      if (signal === 'GAME_WINDOW_NOT_FOUND') {
-        const observedPhase = await this.phase(client);
-        if (observedPhase !== 'InProgress' && observedPhase !== 'Reconnect') {
-          return commandResult(
-            'SUCCESS',
-            'WINDOWS_DUEL_GAME_ALREADY_CLOSED',
-            mapGameflowState(observedPhase),
-            true,
-          );
-        }
-      }
-      return commandResult('UNSUPPORTED', `WINDOWS_DUEL_${signal}`, 'IN_GAME', false);
-    } catch (error) {
-      return this.failedCommand(error, 'DUEL_GAME_EXIT_FAILED');
-    }
   }
 
   async startBotGame(): Promise<AdapterCommandResult> {

@@ -30,6 +30,33 @@ export function createDemoParticipants(
   return participants;
 }
 
+export function createDemoDuelParticipants(
+  currentPlayerId: string,
+  currentGameName: string,
+  currentTagLine: string,
+): MatchParticipant[] {
+  return [
+    {
+      id: currentPlayerId,
+      gameName: currentGameName,
+      tagLine: currentTagLine,
+      team: 'BLUE',
+      role: 'MID',
+      joined: false,
+      isCurrentPlayer: true,
+    },
+    {
+      id: 'demo-duel-opponent',
+      gameName: 'Showdown Opponent',
+      tagLine: 'EUW',
+      team: 'RED',
+      role: 'MID',
+      joined: false,
+      isCurrentPlayer: false,
+    },
+  ];
+}
+
 export function createLocalBotParticipants(
   currentPlayerId: string,
   currentGameName: string,

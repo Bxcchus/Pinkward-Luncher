@@ -39,7 +39,7 @@ describe('demo orchestration', () => {
     vi.useRealTimers();
   });
 
-  it('progresses the stable assigned roster from 0 to 10 joined players', async () => {
+  it('runs the 1v1 simulation with exactly two joined players', async () => {
     const { result } = renderHook(() => useAppController());
 
     act(() => result.current.updateSetting('demoMode', true));
@@ -49,14 +49,16 @@ describe('demo orchestration', () => {
     expect(result.current.state.screen).toBe('READY_CHECK');
 
     await act(async () => result.current.acceptReadyCheck());
-    act(() => vi.advanceTimersByTime(4_000));
+    act(() => vi.advanceTimersByTime(1_000));
     expect(result.current.state.screen).toBe('CREATING_MATCH');
 
     act(() => vi.advanceTimersByTime(2_450));
     expect(result.current.state.screen).toBe('JOINING_LOBBY');
 
-    act(() => vi.advanceTimersByTime(4_200));
-    expect(result.current.state.joinedCount).toBe(10);
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(result.current.state.joinedCount).toBe(2);
+    expect(result.current.state.participants).toHaveLength(2);
+    expect(result.current.state.duelMatch).toBe(true);
     expect(result.current.state.participants.every((participant) => participant.joined)).toBe(true);
     expect(createCustomLobby).not.toHaveBeenCalled();
     expect(joinCustomLobby).not.toHaveBeenCalled();

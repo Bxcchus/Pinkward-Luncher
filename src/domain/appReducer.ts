@@ -260,7 +260,13 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'READY_TICK':
       return { ...state, readySecondsLeft: Math.max(0, state.readySecondsLeft - 1) };
     case 'READY_PROGRESS':
-      return { ...state, acceptedCount: Math.min(10, Math.max(state.acceptedCount, action.acceptedCount)) };
+      return {
+        ...state,
+        acceptedCount: Math.min(
+          state.settings.duelMode && !state.localBotMatch ? 2 : 10,
+          Math.max(state.acceptedCount, action.acceptedCount),
+        ),
+      };
     case 'READY_COMPLETE':
       return {
         ...state,

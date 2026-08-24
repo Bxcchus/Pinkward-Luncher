@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { appReducer, hydrateInitialState, initialState } from '../domain/appReducer';
-import { createDemoLobby, createDemoParticipants, createLocalBotParticipants } from '../domain/demo';
+import {
+  createDemoDuelParticipants,
+  createDemoLobby,
+  createDemoParticipants,
+  createLocalBotParticipants,
+} from '../domain/demo';
 import { duelExitDelayMs, shouldSendScheduledDuelExit } from '../domain/duelExitTiming';
 import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
@@ -1128,11 +1133,13 @@ export function useAppController(): AppController {
       state.screen !== 'READY_CHECK' ||
       !state.acceptedByMe
     ) return;
+    const duelSimulation = stateRef.current.settings.demoMode && stateRef.current.settings.duelMode;
+    const expectedPlayers = duelSimulation ? 2 : 10;
     let count = Math.max(1, stateRef.current.acceptedCount);
     const interval = window.setInterval(() => {
       count += 1;
       dispatch({ type: 'READY_PROGRESS', acceptedCount: count });
-      if (count >= 10) {
+      if (count >= expectedPlayers) {
         window.clearInterval(interval);
         const player = stateRef.current.player;
         if (!player) return;
@@ -1143,25 +1150,37 @@ export function useAppController(): AppController {
               player.tagLine,
               stateRef.current.primaryRole,
             )
+          : duelSimulation
+            ? createDemoDuelParticipants(player.id, player.gameName, player.tagLine)
           : createDemoParticipants(
-          player.id,
-          player.gameName,
-          player.tagLine,
-          stateRef.current.primaryRole,
+              player.id,
+              player.gameName,
+              player.tagLine,
+              stateRef.current.primaryRole,
             );
         window.setTimeout(
-          () =>
+          () => {
+            if (duelSimulation) {
+              dispatch({
+                type: 'DUEL_MATCHED',
+                matchId: 'duel-demo-live',
+                participants,
+                owner: true,
+              });
+              return;
+            }
             dispatch({
               type: 'READY_COMPLETE',
               matchId: 'match-demo-live',
               participants,
-            }),
+            });
+          },
           500,
         );
       }
     }, 380);
     return () => window.clearInterval(interval);
-  }, [state.acceptedByMe, state.localBotMatch, state.screen, state.settings.demoMode]);
+  }, [state.acceptedByMe, state.localBotMatch, state.screen, state.settings.demoMode, state.settings.duelMode]);
 
   useEffect(() => {
     if (!state.settings.demoMode || state.screen !== 'CREATING_MATCH') return;
@@ -1307,8 +1326,10 @@ export function useAppController(): AppController {
         playedAt: new Date().toISOString(),
         result: 'WIN',
         role: current.primaryRole,
-        durationSeconds: Math.max(1_764, current.inGameElapsedSeconds),
-        score: '32 – 25',
+        durationSeconds: current.settings.duelMode
+          ? Math.max(10, current.inGameElapsedSeconds)
+          : Math.max(1_764, current.inGameElapsedSeconds),
+        score: current.settings.duelMode ? '1 – 0' : '32 – 25',
       },
     });
   }, []);

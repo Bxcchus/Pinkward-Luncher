@@ -174,7 +174,7 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
   const { state } = controller;
   const [partyOpen, setPartyOpen] = useState(false);
   const partySize = 1 + state.partyMembers.length;
-  const rolesLocked = searching || state.settings.duelMode;
+  const rolesLocked = searching;
   return (
     <div className={`screen matchmaking-stage${searching ? ' matchmaking-stage--searching' : ''}`}>
       <PageHeading
@@ -217,12 +217,11 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
             <span><strong>Community Draft</strong><small>Summoner's Rift · Tournament draft</small></span>
           </button>
         </section>
-        <section className={`panel role-panel${rolesLocked ? ' role-panel--locked' : ''}`} aria-label="Role loadout" aria-disabled={rolesLocked}>
-          {state.settings.duelMode && !searching && (
-            <div className="role-lock-notice"><Icon name="shield" size={16} /><span><strong>Roles locked for 1V1</strong><small>Your 5V5 role choices are preserved.</small></span></div>
-          )}
-          <RoleLoadout primaryRole={state.primaryRole} secondaryRole={state.secondaryRole} disabled={rolesLocked} onPrimaryChange={controller.setPrimaryRole} onSecondaryChange={controller.setSecondaryRole} />
-        </section>
+        {!state.settings.duelMode && (
+          <section className={`panel role-panel${rolesLocked ? ' role-panel--locked' : ''}`} aria-label="Role loadout" aria-disabled={rolesLocked}>
+            <RoleLoadout primaryRole={state.primaryRole} secondaryRole={state.secondaryRole} disabled={rolesLocked} onPrimaryChange={controller.setPrimaryRole} onSecondaryChange={controller.setSecondaryRole} />
+          </section>
+        )}
         <QueueSummary controller={controller} searching={searching} pending={pending} onFind={onFind} />
       </div>
       {partyOpen && <PartyDialog controller={controller} locked={searching} onClose={() => setPartyOpen(false)} />}

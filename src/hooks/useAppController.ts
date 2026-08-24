@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from 'react';
 import { appReducer, hydrateInitialState, initialState } from '../domain/appReducer';
 import { createDemoLobby, createDemoParticipants, createLocalBotParticipants } from '../domain/demo';
-import { duelExitDelayMs } from '../domain/duelExitTiming';
+import { duelExitDelayMs, shouldSendScheduledDuelExit } from '../domain/duelExitTiming';
 import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
   AppSettings,
@@ -149,12 +149,21 @@ export function useAppController(): AppController {
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
 
+  const cancelScheduledDuelExit = useCallback((matchId: string) => {
+    const timer = duelExitTimersRef.current.get(matchId);
+    if (timer !== undefined) window.clearTimeout(timer);
+    duelExitTimersRef.current.delete(matchId);
+  }, []);
+
   const exitDuelGame = useCallback(async (matchId: string) => {
     if (
       !window.w3c ||
       duelExitAttemptedRef.current.has(matchId) ||
       duelExitGuardInFlightRef.current.has(matchId)
     ) return;
+    const status = await window.w3c.league.getStatus().catch(() => null);
+    if (!status || !shouldSendScheduledDuelExit(status.state)) return;
+
     duelExitAttemptedRef.current.add(matchId);
     duelExitGuardInFlightRef.current.add(matchId);
     try {
@@ -274,6 +283,8 @@ export function useAppController(): AppController {
               }
               return;
             }
+
+            cancelScheduledDuelExit(matchId);
 
             const riotReleasedGame =
               status.state === 'CONNECTED' ||
@@ -583,7 +594,7 @@ export function useAppController(): AppController {
       active = false;
       window.clearInterval(interval);
     };
-  }, [api, exitDuelGame, scheduleDuelExit]);
+  }, [api, cancelScheduledDuelExit, exitDuelGame, scheduleDuelExit]);
 
   const runCommandOnce = useCallback(
     (commandId: string, operation: () => Promise<ClientEvent>) => {

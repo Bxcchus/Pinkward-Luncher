@@ -196,7 +196,7 @@ export interface PlayerStats {
   matches: MatchSummary[];
 }
 
-export type ChatChannel = 'DUEL_1V1' | 'COMMUNITY_5V5';
+export type ChatChannel = 'GENERAL' | 'DUEL_1V1' | 'COMMUNITY_5V5';
 
 export interface ChatMessage {
   id: string;

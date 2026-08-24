@@ -621,11 +621,12 @@ export function useAppController(): AppController {
 
   const refreshChat = useCallback(async () => {
     try {
-      const [duelMessages, communityMessages] = await Promise.all([
+      const [generalMessages, duelMessages, communityMessages] = await Promise.all([
+        api.getChatMessages('GENERAL'),
         api.getChatMessages('DUEL_1V1'),
         api.getChatMessages('COMMUNITY_5V5'),
       ]);
-      dispatch({ type: 'SET_CHAT_MESSAGES', messages: [...duelMessages, ...communityMessages] });
+      dispatch({ type: 'SET_CHAT_MESSAGES', messages: [...generalMessages, ...duelMessages, ...communityMessages] });
     } catch {
       // The live socket can continue delivering messages if history loading fails temporarily.
     }

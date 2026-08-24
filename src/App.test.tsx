@@ -111,7 +111,7 @@ describe('Pinkward companion', () => {
     screen.getAllByRole('radio').forEach((role) => expect(role).toBeDisabled());
   });
 
-  it('keeps the 1v1 and 5v5 community rooms separate in simulation mode', async () => {
+  it('keeps the general, 1v1 and 5v5 community rooms separate in simulation mode', async () => {
     render(<App />);
 
     fireEvent.click(screen.getByRole('checkbox', { name: /simulation mode/i }));
@@ -121,11 +121,18 @@ describe('Pinkward companion', () => {
 
     await waitFor(() => screen.getByRole('button', { name: /community/i }));
     fireEvent.click(screen.getByRole('button', { name: /community/i }));
+    fireEvent.change(screen.getByLabelText(/message #general/i), {
+      target: { value: 'Hello Pinkward community.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
+
+    expect(await screen.findByText('Hello Pinkward community.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /# 1v1/i }));
+    expect(screen.queryByText('Hello Pinkward community.')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/message #1v1/i), {
       target: { value: 'Looking for a 1v1 opponent.' },
     });
     fireEvent.click(screen.getByRole('button', { name: /^send$/i }));
-
     expect(await screen.findByText('Looking for a 1v1 opponent.')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /# 5v5/i }));
     expect(screen.queryByText('Looking for a 1v1 opponent.')).not.toBeInTheDocument();

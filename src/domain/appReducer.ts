@@ -354,14 +354,14 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case 'SET_CHAT_MESSAGES':
       return {
         ...state,
-        chatMessages: action.messages.slice(-200),
+        chatMessages: action.messages.slice(-300),
         unreadChatMessages: state.screen === 'CHAT' ? 0 : state.unreadChatMessages,
       };
     case 'RECEIVE_CHAT_MESSAGE':
       if (state.chatMessages.some((message) => message.id === action.message.id)) return state;
       return {
         ...state,
-        chatMessages: [...state.chatMessages, action.message].slice(-200),
+        chatMessages: [...state.chatMessages, action.message].slice(-300),
         unreadChatMessages: state.screen === 'CHAT' ? 0 : Math.min(99, state.unreadChatMessages + 1),
       };
     case 'PLAY_AGAIN':

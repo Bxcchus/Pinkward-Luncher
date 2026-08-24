@@ -466,16 +466,19 @@ export function HistoryScreen({ state }: { state: AppState }) {
 
 export function ChatScreen({ controller }: { controller: AppController }) {
   const { state } = controller;
-  const [channel, setChannel] = useState<ChatChannel>('DUEL_1V1');
+  const [channel, setChannel] = useState<ChatChannel>('GENERAL');
   const [draft, setDraft] = useState('');
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const available = state.settings.demoMode || state.serverStatus === 'CONNECTED';
-  const room = channel === 'DUEL_1V1'
-    ? { slug: '1v1', title: '1V1 Showdown', detail: 'Find an opponent or discuss duel rules.' }
-    : { slug: '5v5', title: 'Community 5V5', detail: 'Build a team and organize community drafts.' };
+  const rooms: Record<ChatChannel, { slug: string; title: string; detail: string }> = {
+    GENERAL: { slug: 'general', title: 'General', detail: 'Talk with the whole Pinkward community.' },
+    DUEL_1V1: { slug: '1v1', title: '1V1 Showdown', detail: 'Find an opponent or discuss duel rules.' },
+    COMMUNITY_5V5: { slug: '5v5', title: 'Community 5V5', detail: 'Build a team and organize community drafts.' },
+  };
+  const room = rooms[channel];
   const messages = state.chatMessages.filter((message) =>
-    (message.channel ?? 'COMMUNITY_5V5') === channel,
+    (message.channel ?? 'GENERAL') === channel,
   );
 
   useEffect(() => {
@@ -539,6 +542,7 @@ export function ChatScreen({ controller }: { controller: AppController }) {
         <aside className="panel chat-sidebar">
           <SectionHeader title="Game rooms" detail="Messages stay inside the selected mode." />
           <nav className="chat-room-switcher" aria-label="Community rooms">
+            <button type="button" className={channel === 'GENERAL' ? 'is-active' : ''} aria-pressed={channel === 'GENERAL'} onClick={() => { setChannel('GENERAL'); setDraft(''); }}><strong># GENERAL</strong><small>Community</small></button>
             <button type="button" className={channel === 'DUEL_1V1' ? 'is-active' : ''} aria-pressed={channel === 'DUEL_1V1'} onClick={() => { setChannel('DUEL_1V1'); setDraft(''); }}><strong># 1V1</strong><small>Showdown</small></button>
             <button type="button" className={channel === 'COMMUNITY_5V5' ? 'is-active' : ''} aria-pressed={channel === 'COMMUNITY_5V5'} onClick={() => { setChannel('COMMUNITY_5V5'); setDraft(''); }}><strong># 5V5</strong><small>Community draft</small></button>
           </nav>

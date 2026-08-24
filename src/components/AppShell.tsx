@@ -87,8 +87,11 @@ export function AppShell({ state, controller, children }: ShellProps) {
               gameName={state.player?.gameName}
               profileIconDataUrl={state.player?.profileIconDataUrl}
             />
-            <div>
-              <strong>{state.player?.gameName}<span>#{state.player?.tagLine}</span></strong>
+            <div className="topbar__player-copy">
+              <strong title={`${state.player?.gameName ?? ''}#${state.player?.tagLine ?? ''}`}>
+                <span className="topbar__game-name">{state.player?.gameName}</span>
+                <span className="topbar__tag-line">#{state.player?.tagLine}</span>
+              </strong>
               <small>{isWebDemo ? 'Interactive local simulation' : 'Verified League session'}</small>
             </div>
             <span className="region-badge">{state.player?.region}</span>

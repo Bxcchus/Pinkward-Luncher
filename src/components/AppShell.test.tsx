@@ -32,4 +32,31 @@ describe('AppShell League availability', () => {
     fireEvent.click(screen.getByRole('button', { name: /open league/i }));
     expect(openLeague).toHaveBeenCalledOnce();
   });
+
+  it('keeps the tag line and region separate from a long summoner name', () => {
+    const state = {
+      ...initialState,
+      screen: 'HOME' as const,
+      player: {
+        id: 'player-long-name',
+        gameName: 'SAMURAI SHAMPLOO WITH A VERY LONG NAME',
+        tagLine: 'jin02',
+        region: 'EUW',
+      },
+    };
+    const controller = {
+      state,
+      navigate: vi.fn(),
+      logout: vi.fn(),
+      openLeague: vi.fn(),
+    } as unknown as AppController;
+
+    const { container } = render(
+      <AppShell state={state} controller={controller}><div>Home</div></AppShell>,
+    );
+
+    expect(container.querySelector('.topbar__game-name')).toHaveTextContent(state.player.gameName);
+    expect(container.querySelector('.topbar__tag-line')).toHaveTextContent('#jin02');
+    expect(container.querySelector('.region-badge')).toHaveTextContent('EUW');
+  });
 });

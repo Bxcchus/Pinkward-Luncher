@@ -7,6 +7,7 @@ function installUpdaterBridge(snapshot: AppUpdateSnapshot) {
   const updater = {
     getStatus: vi.fn().mockResolvedValue(snapshot),
     check: vi.fn().mockResolvedValue({ ...snapshot, status: 'UP_TO_DATE', message: 'Pinkward is up to date.' }),
+    download: vi.fn().mockResolvedValue({ ...snapshot, status: 'DOWNLOADING', progressPercent: 0 }),
     install: vi.fn().mockResolvedValue(true),
     onStatus: vi.fn((listener: (nextSnapshot: AppUpdateSnapshot) => void) => {
       listeners.add(listener);

@@ -18,7 +18,7 @@ interface AdapterCommandResult {
 
 declare global {
   interface AppUpdateSnapshot {
-    status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'DOWNLOADING' | 'READY' | 'ERROR';
+    status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'AVAILABLE' | 'DOWNLOADING' | 'READY' | 'ERROR';
     currentVersion: string;
     availableVersion?: string;
     progressPercent?: number;
@@ -40,6 +40,11 @@ declare global {
         getIdentity(): Promise<LeagueIdentity | null>;
         getGameResult(gameId: number): Promise<LeagueGameResult | null>;
         getDuelVictory(): Promise<LeagueDuelVictory | null>;
+        onGameflowEvent(listener: (event: {
+          type: 'CONNECTED' | 'GAMEFLOW_CHANGED';
+          phase?: string;
+          observedAt: string;
+        }) => void): () => void;
         createCustomLobby(configuration: LobbyCredentials & {
           region: string;
           expectedPlayers: number;
@@ -66,6 +71,7 @@ declare global {
       updater: {
         getStatus(): Promise<AppUpdateSnapshot>;
         check(): Promise<AppUpdateSnapshot>;
+        download(): Promise<AppUpdateSnapshot>;
         install(): Promise<boolean>;
         onStatus(listener: (snapshot: AppUpdateSnapshot) => void): () => void;
       };

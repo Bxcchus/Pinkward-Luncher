@@ -21,7 +21,9 @@ import type {
   WebPreferences,
 } from '../domain/types';
 import { ApiError, W3cApiClient } from '../services/apiClient';
+import { DuelVictoryMonitor } from '../services/duelVictoryMonitor';
 import { handleLeagueCommand, toLobbyCredentials } from '../services/leagueCommandHandler';
+import { LeagueStatusMonitor } from '../services/leagueStatusMonitor';
 import { loadMatchHistory, saveMatchHistory } from '../services/matchHistoryStorage';
 import { configureServerAddress, runtimeConfig } from '../services/runtimeConfig';
 import {
@@ -143,7 +145,6 @@ export function useAppController(): AppController {
   const gameResultChecksInFlightRef = useRef(new Set<string>());
   const reportedGameResultsRef = useRef(new Set<string>());
   const duelOperationsRef = useRef(new Set<string>());
-  const duelVictoryChecksInFlightRef = useRef(new Set<string>());
   const reportedDuelVictoryRef = useRef(new Set<string>());
   const pendingDuelCompletionsRef = useRef(new Map<string, PendingDuelCompletion>());
   const duelCompletionInFlightRef = useRef(new Set<string>());
@@ -279,81 +280,6 @@ export function useAppController(): AppController {
               current.settings.desktopNotifications,
             );
             return;
-          }
-
-          if (
-            current.duelMatch &&
-            status.state === 'IN_GAME' &&
-            current.lifecycle === 'IN_GAME' &&
-            window.w3c &&
-            !reportedDuelVictoryRef.current.has(matchId) &&
-            !duelVictoryChecksInFlightRef.current.has(matchId)
-          ) {
-            duelVictoryChecksInFlightRef.current.add(matchId);
-            try {
-              const victory = await window.w3c.league.getDuelVictory();
-              if (victory) {
-                const currentTeam = current.participants.find(
-                  (participant) => participant.isCurrentPlayer,
-                )?.team;
-                if (!currentTeam) {
-                  dispatch({
-                    type: 'SET_ERROR',
-                    message: 'A 1v1 win condition was detected, but your assigned team is unknown.',
-                  });
-                  return;
-                }
-
-                reportedDuelVictoryRef.current.add(matchId);
-                const winningTeam = victory.localPlayerWon
-                  ? currentTeam
-                  : currentTeam === 'BLUE' ? 'RED' : 'BLUE';
-                const outcome = winningTeam === 'BLUE' ? 'BLUE_WIN' : 'RED_WIN';
-                const durationSeconds = Math.max(0, Math.round(victory.eventTimeSeconds));
-                const score = duelVictoryScore(victory, winningTeam);
-                const completedAt = new Date().toISOString();
-
-                try {
-                  await api.finishDuel(matchId, {
-                    outcome,
-                    winCondition: victory.condition,
-                    durationSeconds,
-                    score,
-                    completedAt,
-                  });
-                } catch {
-                  reportedDuelVictoryRef.current.delete(matchId);
-                  dispatch({
-                    type: 'SET_ERROR',
-                    message: 'The 1v1 win condition was detected, but the server could not save the result.',
-                  });
-                  return;
-                }
-                pendingDuelCompletionsRef.current.set(matchId, {
-                  result: {
-                    id: matchId,
-                    playedAt: completedAt,
-                    result: victory.localPlayerWon ? 'WIN' : 'LOSS',
-                    role: current.primaryRole,
-                    durationSeconds,
-                    score,
-                  },
-                  notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
-                  notificationBody: `${duelVictoryMessage(victory)} Result saved. Leave the custom game manually.`,
-                  acknowledgeServer: false,
-                  inactivePolls: 0,
-                });
-                dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
-                desktopNotification(
-                  `${duelConditionLabel(victory.condition)} confirmed`,
-                  'The result is saved. You can now leave the custom game manually.',
-                  current.settings.desktopNotifications,
-                );
-                return;
-              }
-            } finally {
-              duelVictoryChecksInFlightRef.current.delete(matchId);
-            }
           }
 
           const leftActiveGameflow =
@@ -528,13 +454,114 @@ export function useAppController(): AppController {
         }
       }
     };
-    void poll();
-    const interval = window.setInterval(() => void poll(), 5_000);
+    const monitor = new LeagueStatusMonitor(poll, 5_000);
+    const unsubscribe = window.w3c?.league.onGameflowEvent?.(() => monitor.notifyEvent());
+    monitor.start();
     return () => {
       active = false;
-      window.clearInterval(interval);
+      unsubscribe?.();
+      monitor.stop();
     };
   }, [api]);
+
+  useEffect(() => {
+    const matchId = state.currentMatchId;
+    if (
+      !matchId ||
+      !state.duelMatch ||
+      state.settings.demoMode ||
+      !window.w3c
+    ) return;
+
+    const monitor = new DuelVictoryMonitor(
+      () => window.w3c!.league.getDuelVictory(),
+      async (victory) => {
+        const current = stateRef.current;
+        if (
+          current.currentMatchId !== matchId ||
+          !current.duelMatch
+        ) return;
+        const currentTeam = current.participants.find(
+          (participant) => participant.isCurrentPlayer,
+        )?.team;
+        if (!currentTeam) {
+          dispatch({
+            type: 'SET_ERROR',
+            message: 'A 1v1 win condition was detected, but your assigned team is unknown.',
+          });
+          throw new Error('DUEL_TEAM_UNKNOWN');
+        }
+
+        const winningTeam = victory.localPlayerWon
+          ? currentTeam
+          : currentTeam === 'BLUE' ? 'RED' : 'BLUE';
+        const outcome = winningTeam === 'BLUE' ? 'BLUE_WIN' : 'RED_WIN';
+        const durationSeconds = Math.max(0, Math.round(victory.eventTimeSeconds));
+        const score = duelVictoryScore(victory, winningTeam);
+        const completedAt = new Date().toISOString();
+
+        try {
+          await api.finishDuel(matchId, {
+            outcome,
+            winCondition: victory.condition,
+            durationSeconds,
+            score,
+            completedAt,
+          });
+        } catch {
+          dispatch({
+            type: 'SET_ERROR',
+            message: 'The 1v1 win condition was detected, but the server could not save the result.',
+          });
+          throw new Error('DUEL_RESULT_NOT_SAVED');
+        }
+
+        reportedDuelVictoryRef.current.add(matchId);
+        pendingDuelCompletionsRef.current.set(matchId, {
+          result: {
+            id: matchId,
+            playedAt: completedAt,
+            result: victory.localPlayerWon ? 'WIN' : 'LOSS',
+            role: current.primaryRole,
+            durationSeconds,
+            score,
+          },
+          notificationTitle: victory.localPlayerWon ? '1v1 victory' : '1v1 defeat',
+          notificationBody: `${duelVictoryMessage(victory)} Result saved. Leave the custom game manually.`,
+          acknowledgeServer: false,
+          inactivePolls: 0,
+        });
+        dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'DUEL_ENDING' });
+        desktopNotification(
+          `${duelConditionLabel(victory.condition)} confirmed`,
+          'The result is saved. You can now leave the custom game manually.',
+          current.settings.desktopNotifications,
+        );
+      },
+    );
+
+    let interval: number | null = null;
+    const poll = async () => {
+      const current = stateRef.current;
+      if (
+        current.currentMatchId !== matchId ||
+        current.league.state !== 'IN_GAME' ||
+        current.lifecycle !== 'IN_GAME' ||
+        reportedDuelVictoryRef.current.has(matchId)
+      ) return;
+      await monitor.poll().catch(() => undefined);
+      if (monitor.isComplete && interval !== null) {
+        window.clearInterval(interval);
+        interval = null;
+      }
+    };
+    void poll();
+    interval = window.setInterval(() => void poll(), 1_000);
+    return () => {
+      monitor.stop();
+      if (interval !== null) window.clearInterval(interval);
+    };
+  }, [api, state.currentMatchId, state.duelMatch, state.settings.demoMode]);
 
   const runCommandOnce = useCallback(
     (commandId: string, operation: () => Promise<ClientEvent>) => {
@@ -1420,7 +1447,6 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
-    duelVictoryChecksInFlightRef.current.clear();
     reportedDuelVictoryRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode && !current.localBotMatch) {
@@ -1545,7 +1571,6 @@ export function useAppController(): AppController {
     activeGameIdRef.current = null;
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
-    duelVictoryChecksInFlightRef.current.clear();
     reportedDuelVictoryRef.current.clear();
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode) {

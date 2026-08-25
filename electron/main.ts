@@ -3,11 +3,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { app, BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 import electronUpdater from 'electron-updater';
+import { LcuEventClient, type LeagueGameflowEvent } from './league/LcuEventClient.js';
+import { LcuHttpClient } from './league/LcuHttpClient.js';
 import { LocalLeagueClientAdapter } from './league/LocalLeagueClientAdapter.js';
 import type { BotLobbyConfiguration, CustomLobbyConfiguration, LobbyCredentials } from './league/types.js';
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const leagueAdapter = new LocalLeagueClientAdapter();
+const leagueEventClient = new LcuEventClient(
+  (event) => publishLeagueEvent(event),
+  async () =>
+    (await LcuHttpClient.connect(leagueAdapter.getInstallationDirectory())).webSocketConnection(),
+);
 
 interface LeagueLocationPreference {
   installationDirectory?: unknown;
@@ -23,6 +30,7 @@ type UpdateStatus =
   | 'IDLE'
   | 'CHECKING'
   | 'UP_TO_DATE'
+  | 'AVAILABLE'
   | 'DOWNLOADING'
   | 'READY'
   | 'ERROR';
@@ -41,6 +49,12 @@ let updateSnapshot: UpdateSnapshot = {
   currentVersion: '0.0.0',
   message: 'Updates are available in the installed Windows edition.',
 };
+
+function publishLeagueEvent(event: LeagueGameflowEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send('league:gameflow-event', event);
+  }
+}
 
 function leaguePreferenceFile(): string {
   return path.join(app.getPath('userData'), 'league-location.json');
@@ -91,15 +105,14 @@ async function configureAutomaticUpdates(): Promise<void> {
     const { NsisUpdater } = electronUpdater;
     const updater = new NsisUpdater({ provider: 'generic', url: updateUrl.toString() });
     applicationUpdater = updater;
-    updater.autoDownload = true;
-    updater.autoInstallOnAppQuit = true;
+    updater.autoDownload = false;
+    updater.autoInstallOnAppQuit = false;
     updater.on('checking-for-update', () => {
       updateStatus('CHECKING', 'Checking GitHub for a newer Pinkward release…');
     });
     updater.on('update-available', (info) => {
-      updateStatus('DOWNLOADING', `Downloading Pinkward ${info.version}…`, {
+      updateStatus('AVAILABLE', `Pinkward ${info.version} is available.`, {
         availableVersion: info.version,
-        progressPercent: 0,
       });
     });
     updater.on('update-not-available', (info) => {
@@ -118,13 +131,37 @@ async function configureAutomaticUpdates(): Promise<void> {
       });
     });
     updater.on('error', () => {
-      updateStatus('ERROR', 'Unable to retrieve the latest Pinkward release from GitHub.');
+      updateStatus('ERROR', 'Unable to retrieve the latest Pinkward release from GitHub.', {
+        availableVersion: updateSnapshot.availableVersion,
+      });
     });
     updateStatus('IDLE', 'Check GitHub for the latest Pinkward release.');
   } catch {
     applicationUpdater = null;
     updateStatus('ERROR', 'Unable to configure Pinkward updates.');
   }
+}
+
+async function downloadApplicationUpdate(): Promise<UpdateSnapshot> {
+  const retryingKnownUpdate =
+    updateSnapshot.status === 'ERROR' && Boolean(updateSnapshot.availableVersion);
+  if (
+    !applicationUpdater ||
+    (updateSnapshot.status !== 'AVAILABLE' && !retryingKnownUpdate)
+  ) return updateSnapshot;
+  const availableVersion = updateSnapshot.availableVersion;
+  updateStatus('DOWNLOADING', `Downloading Pinkward ${availableVersion ?? 'update'}…`, {
+    availableVersion,
+    progressPercent: 0,
+  });
+  try {
+    await applicationUpdater.downloadUpdate();
+  } catch {
+    updateStatus('ERROR', 'The Pinkward update could not be downloaded. Please retry.', {
+      availableVersion,
+    });
+  }
+  return updateSnapshot;
 }
 
 async function checkForApplicationUpdates(): Promise<UpdateSnapshot> {
@@ -252,6 +289,7 @@ function registerIpc(): void {
     }
     leagueAdapter.setInstallationDirectory(directory);
     await saveLeagueLocation(directory);
+    leagueEventClient.restart();
     return { path: directory, selected: true };
   });
   ipcMain.handle('league:get-status', () => leagueAdapter.getStatus());
@@ -279,6 +317,7 @@ function registerIpc(): void {
   ipcMain.handle('league:open', () => leagueAdapter.openLeague());
   ipcMain.handle('updater:get-status', () => updateSnapshot);
   ipcMain.handle('updater:check', () => checkForApplicationUpdates());
+  ipcMain.handle('updater:download', () => downloadApplicationUpdate());
   ipcMain.handle('updater:install', () => installApplicationUpdate());
 }
 
@@ -287,11 +326,14 @@ app.whenReady().then(async () => {
   await configureAutomaticUpdates();
   registerIpc();
   createWindow();
+  leagueEventClient.start();
   void checkForApplicationUpdates();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
+
+app.on('before-quit', () => leagueEventClient.stop());
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

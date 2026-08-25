@@ -21,6 +21,11 @@ interface LockfileConnection {
   password: string;
 }
 
+export interface LcuWebSocketConnection {
+  url: string;
+  authorization: string;
+}
+
 interface RiotClientInstallManifest {
   associated_client?: Record<string, unknown>;
 }
@@ -75,6 +80,13 @@ export class LcuHttpClient {
 
   async put<T>(requestPath: string, body: unknown): Promise<T> {
     return this.request<T>('PUT', requestPath, body);
+  }
+
+  webSocketConnection(): LcuWebSocketConnection {
+    return {
+      url: `wss://127.0.0.1:${this.connection.port}/`,
+      authorization: `Basic ${Buffer.from(`riot:${this.connection.password}`).toString('base64')}`,
+    };
   }
 
   async getImageDataUrl(requestPath: string): Promise<string> {

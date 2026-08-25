@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from './components/AppShell';
 import { PartyDialog } from './components/PartyDialog';
+import { MandatoryUpdateDialog } from './components/MandatoryUpdateDialog';
 import { Toast } from './components/UI';
 import { useAppController } from './hooks/useAppController';
 import { LoginScreen } from './screens/LoginScreen';
@@ -35,8 +36,18 @@ export default function App() {
     return () => window.clearTimeout(timeout);
   }, [controller, state.toast]);
 
-  if (isWebDemo && demoInformationRoutes.has(requestedRoute)) return <DemoInformationScreen route={requestedRoute} />;
-  if (!state.player || state.screen === 'LOGIN') return <LoginScreen controller={controller} />;
+  if (isWebDemo && demoInformationRoutes.has(requestedRoute)) return (
+    <>
+      <DemoInformationScreen route={requestedRoute} />
+      <MandatoryUpdateDialog />
+    </>
+  );
+  if (!state.player || state.screen === 'LOGIN') return (
+    <>
+      <LoginScreen controller={controller} />
+      <MandatoryUpdateDialog />
+    </>
+  );
 
   let screen: React.ReactNode;
   switch (state.screen) {
@@ -65,6 +76,7 @@ export default function App() {
         />
       )}
       {state.toast && <Toast>{state.toast}</Toast>}
+      <MandatoryUpdateDialog />
     </AppShell>
   );
 }

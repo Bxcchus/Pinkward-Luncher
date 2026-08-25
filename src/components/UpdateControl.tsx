@@ -10,6 +10,7 @@ const unavailableSnapshot: AppUpdateSnapshot = {
 function buttonLabel(snapshot: AppUpdateSnapshot): string {
   switch (snapshot.status) {
     case 'CHECKING': return 'Checking…';
+    case 'AVAILABLE': return 'Download update';
     case 'DOWNLOADING': return `Downloading ${Math.round(snapshot.progressPercent ?? 0)}%`;
     case 'READY': return 'Restart and install';
     case 'UP_TO_DATE': return 'Check again';
@@ -56,7 +57,7 @@ export function UpdateControl() {
       return;
     }
     try {
-      setSnapshot(await bridge.check());
+      setSnapshot(snapshot.status === 'AVAILABLE' ? await bridge.download() : await bridge.check());
     } catch {
       setSnapshot({
         ...snapshot,

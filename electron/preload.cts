@@ -18,11 +18,17 @@ interface BotLobbyConfiguration extends CustomLobbyConfiguration {
 }
 
 interface UpdateSnapshot {
-  status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'DOWNLOADING' | 'READY' | 'ERROR';
+  status: 'UNAVAILABLE' | 'IDLE' | 'CHECKING' | 'UP_TO_DATE' | 'AVAILABLE' | 'DOWNLOADING' | 'READY' | 'ERROR';
   currentVersion: string;
   availableVersion?: string;
   progressPercent?: number;
   message: string;
+}
+
+interface LeagueGameflowEvent {
+  type: 'CONNECTED' | 'GAMEFLOW_CHANGED';
+  phase?: string;
+  observedAt: string;
 }
 
 const leagueBridge = {
@@ -32,6 +38,11 @@ const leagueBridge = {
   getIdentity: () => ipcRenderer.invoke('league:get-identity'),
   getGameResult: (gameId: number) => ipcRenderer.invoke('league:get-game-result', gameId),
   getDuelVictory: () => ipcRenderer.invoke('league:get-duel-victory'),
+  onGameflowEvent: (listener: (event: LeagueGameflowEvent) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, event: LeagueGameflowEvent) => listener(event);
+    ipcRenderer.on('league:gameflow-event', handler);
+    return () => ipcRenderer.removeListener('league:gameflow-event', handler);
+  },
   createCustomLobby: (configuration: CustomLobbyConfiguration) =>
     ipcRenderer.invoke('league:create-custom-lobby', configuration),
   createBotLobby: (configuration: BotLobbyConfiguration) =>
@@ -52,6 +63,7 @@ const leagueBridge = {
 const updaterBridge = {
   getStatus: (): Promise<UpdateSnapshot> => ipcRenderer.invoke('updater:get-status'),
   check: (): Promise<UpdateSnapshot> => ipcRenderer.invoke('updater:check'),
+  download: (): Promise<UpdateSnapshot> => ipcRenderer.invoke('updater:download'),
   install: (): Promise<boolean> => ipcRenderer.invoke('updater:install'),
   onStatus: (listener: (snapshot: UpdateSnapshot) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, snapshot: UpdateSnapshot) => listener(snapshot);

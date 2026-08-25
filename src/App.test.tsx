@@ -99,17 +99,25 @@ describe('Pinkward companion', () => {
     expect(duel).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('region', { name: /role loadout/i })).not.toBeInTheDocument();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getAllByText('Howling Abyss').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Primary')).not.toBeInTheDocument();
+    expect(screen.queryByText('Secondary')).not.toBeInTheDocument();
 
     fireEvent.click(fiveVersusFive);
     expect(fiveVersusFive).toHaveAttribute('aria-pressed', 'true');
     expect(duel).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByRole('region', { name: /role loadout/i })).toBeInTheDocument();
     screen.getAllByRole('radio').forEach((role) => expect(role).toBeEnabled());
+    expect(screen.getAllByText('Primary').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Secondary').length).toBeGreaterThan(0);
 
     fireEvent.click(duel);
     expect(duel).toHaveAttribute('aria-pressed', 'true');
     expect(screen.queryByRole('region', { name: /role loadout/i })).not.toBeInTheDocument();
     expect(screen.queryAllByRole('radio')).toHaveLength(0);
+    expect(screen.getAllByText('Howling Abyss').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Primary')).not.toBeInTheDocument();
+    expect(screen.queryByText('Secondary')).not.toBeInTheDocument();
   });
 
   it('keeps the general, 1v1 and 5v5 community rooms separate in simulation mode', async () => {

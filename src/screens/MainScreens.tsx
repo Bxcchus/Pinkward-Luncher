@@ -142,10 +142,18 @@ function QueueSummary({ controller, searching = false, pending = false, onFind }
   return (
     <aside className={`panel queue-summary${searching ? ' queue-summary--searching' : ''}`}>
       <SectionHeader title={searching ? 'Queue active' : 'Queue summary'} />
-      <div className="queue-summary__roles">
-        <div><span className="queue-role-label">Primary</span><strong>{state.primaryRole}</strong><RoleGlyph role={state.primaryRole} size="large" /></div>
-        <div><span className="queue-role-label">Secondary</span><strong>{state.secondaryRole}</strong><RoleGlyph role={state.secondaryRole} size="large" /></div>
-      </div>
+      {state.settings.duelMode ? (
+        <div className="queue-summary__map">
+          <span className="queue-role-label">Map</span>
+          <strong>Howling Abyss</strong>
+          <small>1v1 Showdown</small>
+        </div>
+      ) : (
+        <div className="queue-summary__roles">
+          <div><span className="queue-role-label">Primary</span><strong>{state.primaryRole}</strong><RoleGlyph role={state.primaryRole} size="large" /></div>
+          <div><span className="queue-role-label">Secondary</span><strong>{state.secondaryRole}</strong><RoleGlyph role={state.secondaryRole} size="large" /></div>
+        </div>
+      )}
       {searching && (
         <div className="queue-summary__timer" aria-live="polite">
           <span><i className="pulse-mini" /> Search elapsed</span>
@@ -183,7 +191,7 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
         description={searching
           ? 'Your configuration is locked while the server finds a match.'
           : state.settings.duelMode
-            ? 'Role selection is disabled in 1v1. Both players enter the same Showdown ruleset.'
+            ? 'Howling Abyss · First blood · 100 CS · First turret.'
             : 'Select a primary and secondary position.'}
         action={<div className="matchmaking-actions">
           {searching && <span className="search-live"><i className="pulse-mini" /> Queue live</span>}
@@ -203,7 +211,7 @@ function MatchmakingStage({ controller, searching = false, pending = false, onFi
             onClick={() => controller.setMatchmakingMode('DUEL_1V1')}
           >
             <span className="match-mode-option__players">1V1</span>
-            <span><strong>Showdown</strong><small>First blood · 100 CS · First turret</small></span>
+            <span><strong>Showdown</strong><small>Howling Abyss · First blood · 100 CS · First turret</small></span>
           </button>
           <button
             type="button"

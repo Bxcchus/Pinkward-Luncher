@@ -8,6 +8,7 @@ import {
 } from '../domain/demo';
 import { shouldCloseInactiveGameflow } from '../domain/gameflowExit';
 import type {
+  ActiveMatchSession,
   AppSettings,
   AppState,
   ChatChannel,
@@ -15,6 +16,7 @@ import type {
   DuelSnapshot,
   LeagueDuelVictory,
   LeagueStatus,
+  MatchLifecycle,
   MatchSummary,
   PlayerIdentity,
   Role,
@@ -92,6 +94,35 @@ function duelVictoryMessage(victory: LeagueDuelVictory): string {
   }
 }
 
+function recoveredDuelLifecycle(snapshot: DuelSnapshot): MatchLifecycle {
+  switch (snapshot.status) {
+    case 'MATCHED': return 'MATCH_READY';
+    case 'LOBBY_READY': return 'PLAYERS_JOINING';
+    case 'BOTH_JOINED': return 'LOBBY_FULL';
+    case 'STARTED': return 'CHAMP_SELECT';
+    case 'FINISHED': return 'DUEL_ENDING';
+    default: return 'MATCH_READY';
+  }
+}
+
+function recoveredMatchParticipants(
+  session: ActiveMatchSession,
+  player: PlayerIdentity,
+): AppState['participants'] {
+  return session.players.map((participant) => {
+    const current = participant.playerId === player.id;
+    return {
+      id: participant.playerId,
+      gameName: current ? player.gameName : 'Pinkward player',
+      tagLine: current ? player.tagLine : participant.playerId.slice(0, 6).toUpperCase(),
+      team: participant.team,
+      role: participant.role,
+      joined: participant.lobbyStatus === 'JOINED',
+      isCurrentPlayer: current,
+    };
+  });
+}
+
 export interface AppController {
   state: AppState;
   login(gameName: string, tagLine: string, region: string): Promise<void>;
@@ -152,6 +183,7 @@ export function useAppController(): AppController {
   const leagueWasRunningRef = useRef<boolean | null>(null);
   const notifiedPartyInvitationsRef = useRef(new Set<string>());
   const webPreferencesUpdateInFlightRef = useRef(false);
+  const rematchWaitingRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -619,6 +651,76 @@ export function useAppController(): AppController {
     }
   }, [api]);
 
+  const recoverServerSession = useCallback(async (player: PlayerIdentity) => {
+    try {
+      const activeMatch = await api.getActiveMatch();
+      dispatch({
+        type: 'RECOVER_MATCH',
+        duelMode: false,
+        matchId: activeMatch.id,
+        participants: recoveredMatchParticipants(activeMatch, player),
+        owner: activeMatch.technicalOwnerId === player.id,
+        lobby: activeMatch.credentials
+          ? {
+              name: activeMatch.credentials.lobbyName,
+              password: activeMatch.credentials.password,
+            }
+          : null,
+        lifecycle: activeMatch.status,
+      });
+      dispatch({ type: 'SHOW_TOAST', message: 'Your active 5v5 session was restored.' });
+      return;
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    }
+
+    try {
+      const duel = await api.getMyDuel();
+      if (duel.status === 'WAITING' || duel.status === 'REMATCH_WAITING' || !duel.matchId) {
+        rematchWaitingRef.current = duel.status === 'REMATCH_WAITING';
+        dispatch({ type: 'RECOVER_QUEUE', duelMode: true, playersSearching: 1 });
+        dispatch({
+          type: 'SHOW_TOAST',
+          message: duel.status === 'REMATCH_WAITING'
+            ? 'Your rematch request was restored.'
+            : 'Your 1v1 search was restored.',
+        });
+        return;
+      }
+      dispatch({
+        type: 'RECOVER_MATCH',
+        duelMode: true,
+        matchId: duel.matchId,
+        participants: duel.participants,
+        owner: duel.ownerId === player.id,
+        lobby: duel.credentials
+          ? {
+              name: duel.credentials.lobbyName,
+              password: duel.credentials.password,
+              ...(duel.partyId ? { partyId: duel.partyId } : {}),
+            }
+          : null,
+        lifecycle: recoveredDuelLifecycle(duel),
+      });
+      dispatch({ type: 'SHOW_TOAST', message: 'Your active 1v1 session was restored.' });
+      return;
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    }
+
+    try {
+      const queue = await api.getMyQueue();
+      dispatch({
+        type: 'RECOVER_QUEUE',
+        duelMode: false,
+        playersSearching: queue.playersSearching,
+      });
+      dispatch({ type: 'SHOW_TOAST', message: 'Your 5v5 search was restored.' });
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) throw error;
+    }
+  }, [api]);
+
   const handleServerEvent = useCallback((event: ServerEvent) => {
     const current = stateRef.current;
     if (current.localBotMatch) return;
@@ -847,7 +949,13 @@ export function useAppController(): AppController {
     const applySnapshot = (snapshot: DuelSnapshot) => {
       if (!active) return;
       const player = stateRef.current.player;
-      if (!player || snapshot.status === 'WAITING' || !snapshot.matchId) return;
+      if (!player) return;
+      if (snapshot.status === 'REMATCH_WAITING') {
+        rematchWaitingRef.current = true;
+        return;
+      }
+      if (snapshot.status === 'WAITING' || !snapshot.matchId) return;
+      rematchWaitingRef.current = false;
       if (snapshot.status === 'CANCELLED') {
         dispatch({ type: 'SET_ERROR', message: 'The other player left the 1v1 match.' });
         void api.leaveDuelQueue().catch(() => undefined);
@@ -1039,7 +1147,16 @@ export function useAppController(): AppController {
     const poll = async () => {
       try {
         applySnapshot(await api.getMyDuel());
-      } catch {
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 404 && rematchWaitingRef.current) {
+          rematchWaitingRef.current = false;
+          dispatch({ type: 'LEAVE_QUEUE' });
+          dispatch({
+            type: 'SET_ERROR',
+            message: 'Your opponent did not accept the rematch within two minutes.',
+          });
+          return;
+        }
         // A just-submitted join can briefly race this poll; the next tick is authoritative.
       }
     };
@@ -1389,6 +1506,7 @@ export function useAppController(): AppController {
           await refreshStats();
           await refreshChat();
           await refreshWebPreferences();
+          await recoverServerSession(player);
         }
       } catch (error) {
         dispatch({ type: 'SET_SERVER_STATUS', status: 'DISCONNECTED' });
@@ -1400,7 +1518,7 @@ export function useAppController(): AppController {
         });
       }
     },
-    [api, refreshChat, refreshStats, refreshWebPreferences],
+    [api, recoverServerSession, refreshChat, refreshStats, refreshWebPreferences],
   );
 
   const sendChatMessage = useCallback(async (content: string, channel: ChatChannel): Promise<boolean> => {
@@ -1448,6 +1566,7 @@ export function useAppController(): AppController {
     inactiveGameflowPollsRef.current.clear();
     duelOperationsRef.current.clear();
     reportedDuelVictoryRef.current.clear();
+    rematchWaitingRef.current = false;
     dispatch({ type: 'SET_ERROR', message: null });
     if (!current.settings.demoMode && !current.localBotMatch) {
       try {
@@ -1576,10 +1695,15 @@ export function useAppController(): AppController {
     if (!current.settings.demoMode) {
       try {
         if (current.settings.duelMode) {
-          await api.joinDuelQueue({
-            primaryRole: current.primaryRole,
-            secondaryRole: current.secondaryRole,
-          });
+          if (current.duelMatch && current.lastResult) {
+            await api.requestDuelRematch(current.lastResult.id);
+            rematchWaitingRef.current = true;
+          } else {
+            await api.joinDuelQueue({
+              primaryRole: current.primaryRole,
+              secondaryRole: current.secondaryRole,
+            });
+          }
         } else {
           if (current.partyId) {
             await api.updatePartyRoles(current.primaryRole, current.secondaryRole);
@@ -1592,10 +1716,18 @@ export function useAppController(): AppController {
       } catch {
         dispatch({
           type: 'SET_ERROR',
-          message: 'Requeue failed. Your roles are still selected; try again when the server is available.',
+          message: current.duelMatch
+            ? 'The rematch request expired or your opponent is unavailable.'
+            : 'Requeue failed. Your roles are still selected; try again when the server is available.',
         });
         return;
       }
+    }
+    if (current.duelMatch) {
+      dispatch({
+        type: 'SHOW_TOAST',
+        message: 'Rematch requested — waiting exclusively for your previous opponent.',
+      });
     }
     dispatch({ type: 'PLAY_AGAIN' });
   }, [api]);
@@ -1603,6 +1735,7 @@ export function useAppController(): AppController {
   const leaveQueue = useCallback(async () => {
     const current = stateRef.current;
     inactiveGameflowPollsRef.current.clear();
+    rematchWaitingRef.current = false;
     if (!current.settings.demoMode && !current.localBotMatch) {
       try {
         if (current.settings.duelMode || current.duelMatch) {

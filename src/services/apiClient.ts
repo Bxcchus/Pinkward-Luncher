@@ -1,4 +1,4 @@
-import type { ChatChannel, ChatMessage, DuelSnapshot, PartyContext, PlayerIdentity, PlayerStats, Role, WebPreferences } from '../domain/types';
+import type { ActiveMatchSession, ChatChannel, ChatMessage, DuelSnapshot, PartyContext, PlayerIdentity, PlayerStats, Role, WebPreferences } from '../domain/types';
 import { runtimeConfig } from './runtimeConfig';
 
 interface SecureLoginRequest {
@@ -16,6 +16,10 @@ interface AuthResponse {
 interface QueueRequest {
   primaryRole: Role;
   secondaryRole: Role;
+}
+
+interface QueueStatusResponse {
+  playersSearching: number;
 }
 
 interface DuelFinishRequest {
@@ -53,6 +57,14 @@ export class W3cApiClient {
 
   leaveQueue(): Promise<void> {
     return this.request<void>('/api/v1/queue/me', { method: 'DELETE' });
+  }
+
+  getMyQueue(): Promise<QueueStatusResponse> {
+    return this.request<QueueStatusResponse>('/api/v1/queue/me', { method: 'GET' });
+  }
+
+  getActiveMatch(): Promise<ActiveMatchSession> {
+    return this.request<ActiveMatchSession>('/api/v1/matches/me/active', { method: 'GET' });
   }
 
   getParty(): Promise<PartyContext> {
@@ -123,6 +135,12 @@ export class W3cApiClient {
     return this.request<void>(`/api/v1/duel/${encodeURIComponent(matchId)}/finished`, {
       method: 'POST',
       ...(result ? { body: JSON.stringify(result) } : {}),
+    });
+  }
+
+  requestDuelRematch(matchId: string): Promise<DuelSnapshot> {
+    return this.request<DuelSnapshot>(`/api/v1/duel/${encodeURIComponent(matchId)}/rematch`, {
+      method: 'POST',
     });
   }
 

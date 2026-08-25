@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { initialState } from '../domain/appReducer';
 import type { AppController } from '../hooks/useAppController';
-import { SettingsScreen } from './MainScreens';
+import { MatchOverviewScreen, SettingsScreen } from './MainScreens';
 
 afterEach(cleanup);
 
@@ -48,5 +48,29 @@ describe('SettingsScreen leaderboard privacy', () => {
     expect(matchHistory).toBeEnabled();
     fireEvent.click(matchHistory);
     expect(controller.updateWebPreference).toHaveBeenCalledWith('showMatchHistory', true);
+  });
+});
+
+describe('MatchOverviewScreen lobby recovery', () => {
+  it('keeps manual lobby credentials available after reconnecting', () => {
+    const controller = {
+      state: {
+        ...initialState,
+        screen: 'MATCH_OVERVIEW',
+        currentMatchId: 'match-restored',
+        lifecycle: 'LOBBY_FULL',
+        lobby: { name: 'PINKWARD-ABC234', password: 'PASS2345' },
+      },
+      copyText: vi.fn().mockResolvedValue(undefined),
+      openLeague: vi.fn().mockResolvedValue(undefined),
+    } as unknown as AppController;
+
+    render(<MatchOverviewScreen controller={controller} />);
+
+    expect(screen.getByText('Automatic join did not work?')).toBeVisible();
+    expect(screen.getByText('PINKWARD-ABC234')).toBeVisible();
+    expect(screen.getByText('PASS2345')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /copy lobby name/i }));
+    expect(controller.copyText).toHaveBeenCalledWith('PINKWARD-ABC234', 'Lobby name');
   });
 });

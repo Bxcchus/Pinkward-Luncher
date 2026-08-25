@@ -143,6 +143,7 @@ export interface MatchParticipant {
 
 export type DuelStatus =
   | 'WAITING'
+  | 'REMATCH_WAITING'
   | 'MATCHED'
   | 'LOBBY_READY'
   | 'BOTH_JOINED'
@@ -164,6 +165,23 @@ export interface DuelSnapshot {
     completedAt: string;
   } | null;
   participants: MatchParticipant[];
+}
+
+export interface ActiveMatchSession {
+  id: string;
+  region: string;
+  status: Exclude<MatchLifecycle, 'LOBBY_VALID' | 'DUEL_ENDING' | 'FINISHED'>;
+  technicalOwnerId: string | null;
+  credentials: { lobbyName: string; password: string } | null;
+  players: Array<{
+    playerId: string;
+    team: 'BLUE' | 'RED';
+    role: Role;
+    lobbyStatus: 'EXPECTED' | 'JOINED' | 'JOIN_FAILED' | 'DISCONNECTED';
+    gameStatus: 'WAITING' | 'CHAMP_SELECT' | 'IN_GAME' | 'GAME_ENDED' | 'DISCONNECTED';
+  }>;
+  createdAt: string;
+  startedAt: string | null;
 }
 
 export interface MatchSummary {
@@ -279,6 +297,16 @@ export type AppAction =
   | { type: 'SET_LEAGUE_INSTALLATION_PATH'; path: string | null }
   | { type: 'SET_SERVER_ADDRESS'; address: string }
   | { type: 'FIND_MATCH' }
+  | { type: 'RECOVER_QUEUE'; duelMode: boolean; playersSearching: number }
+  | {
+      type: 'RECOVER_MATCH';
+      duelMode: boolean;
+      matchId: string;
+      participants: MatchParticipant[];
+      owner: boolean;
+      lobby: LobbyCredentials | null;
+      lifecycle: MatchLifecycle;
+    }
   | { type: 'LOCAL_BOT_MATCH_FOUND'; readyCheckId: string }
   | { type: 'QUEUE_TICK'; playersSearching?: number }
   | { type: 'LEAVE_QUEUE' }

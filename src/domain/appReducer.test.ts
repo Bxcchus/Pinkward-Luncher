@@ -97,6 +97,36 @@ describe('appReducer', () => {
     expect(next.currentMatchId).toBeNull();
   });
 
+  it('restores a queued duel after the desktop app reconnects', () => {
+    const restored = appReducer(initialState, {
+      type: 'RECOVER_QUEUE',
+      duelMode: true,
+      playersSearching: 1,
+    });
+
+    expect(restored.screen).toBe('SEARCHING');
+    expect(restored.settings.duelMode).toBe(true);
+    expect(restored.playersSearching).toBe(1);
+  });
+
+  it('restores an active lobby with its manual fallback credentials', () => {
+    const participants = createDemoParticipants('me', 'Tester', 'EUW', 'MID');
+    const restored = appReducer(initialState, {
+      type: 'RECOVER_MATCH',
+      duelMode: false,
+      matchId: 'active-match',
+      participants,
+      owner: false,
+      lobby: { name: 'PINKWARD-ABC234', password: 'PASS2345' },
+      lifecycle: 'PLAYERS_JOINING',
+    });
+
+    expect(restored.screen).toBe('JOINING_LOBBY');
+    expect(restored.currentMatchId).toBe('active-match');
+    expect(restored.lobby).toEqual({ name: 'PINKWARD-ABC234', password: 'PASS2345' });
+    expect(restored.settings.duelMode).toBe(false);
+  });
+
   it('clears the active lifecycle when leaving so the navigation sidebar returns', () => {
     const state = {
       ...initialState,

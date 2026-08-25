@@ -209,6 +209,47 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         inGameElapsedSeconds: 0,
         error: null,
       };
+    case 'RECOVER_QUEUE':
+      return {
+        ...state,
+        screen: 'SEARCHING',
+        settings: { ...state.settings, duelMode: action.duelMode },
+        playersSearching: action.playersSearching,
+        estimatedWaitSeconds: action.duelMode ? 0 : state.estimatedWaitSeconds,
+        queueElapsedSeconds: 0,
+        readyCheckId: null,
+        lobby: null,
+        participants: [],
+        lifecycle: null,
+        currentMatchId: null,
+        localBotMatch: false,
+        duelMatch: false,
+        duelOwner: false,
+        error: null,
+      };
+    case 'RECOVER_MATCH': {
+      const lobbyStages = new Set(['LOBBY_READY', 'PLAYERS_JOINING']);
+      const creationStages = new Set(['MATCH_READY', 'LOBBY_OWNER_SELECTED', 'LOBBY_CREATING']);
+      const screen = creationStages.has(action.lifecycle)
+        ? action.lobby ? 'MATCH_OVERVIEW' : 'CREATING_MATCH'
+        : lobbyStages.has(action.lifecycle)
+          ? 'JOINING_LOBBY'
+          : 'MATCH_OVERVIEW';
+      return {
+        ...state,
+        screen,
+        settings: { ...state.settings, duelMode: action.duelMode },
+        currentMatchId: action.matchId,
+        participants: action.participants,
+        joinedCount: action.participants.filter((participant) => participant.joined).length,
+        lobby: action.lobby,
+        lifecycle: action.lifecycle,
+        localBotMatch: false,
+        duelMatch: action.duelMode,
+        duelOwner: action.owner,
+        error: null,
+      };
+    }
     case 'LOCAL_BOT_MATCH_FOUND':
       return {
         ...state,

@@ -391,6 +391,18 @@ export function MatchOverviewScreen({ controller }: { controller: AppController 
     <div className="screen match-screen">
       <PageHeading eyebrow={`MATCH ${state.currentMatchId?.slice(-8).toUpperCase() ?? ''}`} title={lifecycleCopy[lifecycle].title} description={lifecycleCopy[lifecycle].detail} />
       {state.error && <Alert>{state.error}</Alert>}
+      {state.lobby && (
+        <section className="panel lobby-recovery-card" aria-label="Lobby recovery details">
+          <div>
+            <span className="eyebrow">MANUAL LOBBY ACCESS</span>
+            <h2>Automatic join did not work?</h2>
+            <p>Use these credentials to enter the assigned custom game manually.</p>
+          </div>
+          <div className="credential"><span>Lobby name</span><strong>{state.lobby.name}</strong><button type="button" onClick={() => void controller.copyText(state.lobby!.name, 'Lobby name')} aria-label="Copy lobby name"><Icon name="copy" size={17} /></button></div>
+          <div className="credential"><span>Password</span><strong>{state.lobby.password}</strong><button type="button" onClick={() => void controller.copyText(state.lobby!.password, 'Password')} aria-label="Copy password"><Icon name="copy" size={17} /></button></div>
+          <Button tone="ghost" icon="external" onClick={() => void controller.openLeague()}>Open League</Button>
+        </section>
+      )}
       <section className="panel lifecycle-banner">
         <span className="search-indicator"><span className="spinner-mini" /></span>
         <div><span className="eyebrow">CONNECTION STATUS</span><h2>{lifecycleCopy[lifecycle].title}</h2><p>{lifecycleCopy[lifecycle].detail}</p></div>
@@ -416,7 +428,7 @@ export function PostGameScreen({ controller }: { controller: AppController }) {
           <div><dt>Duration</dt><dd>{seconds(result?.durationSeconds ?? 0)}</dd></div>
           <div><dt>Match</dt><dd>{result?.id.slice(-12) ?? state.currentMatchId?.slice(-12) ?? 'Resolving'}</dd></div>
         </dl>
-        <div className="result-summary__actions"><Button onClick={() => controller.navigate('HISTORY')}>History</Button><Button tone="primary" icon="play" onClick={() => void controller.playAgain()} disabled={pending}>Play again</Button></div>
+        <div className="result-summary__actions"><Button onClick={() => controller.navigate('HISTORY')}>History</Button><Button tone="primary" icon="play" onClick={() => void controller.playAgain()} disabled={pending}>{state.duelMatch ? 'Request rematch' : 'Play again'}</Button></div>
       </section>
       {state.error && <Alert>{state.error}</Alert>}
       {state.participants.length > 0 && <section className="postgame-teams"><SectionHeader title="Teams" detail="Final match roster" /><MatchTeams participants={state.participants} /></section>}

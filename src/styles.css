@@ -701,6 +701,12 @@ h1, h2, h3, p, dl, dd { margin: 0; }
 .instruction-list strong { font-size: 11px; }
 .instruction-list small { margin-top: 3px; color: var(--text-muted); font-size: 10px; }
 .credentials-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lobby-recovery-card { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(180px, .65fr) minmax(160px, .55fr) auto; gap: 12px; align-items: center; margin-bottom: 14px; }
+.lobby-recovery-card h2 { margin: 3px 0; font-size: 16px; }
+.lobby-recovery-card p { margin: 0; color: var(--text-muted); }
+.lobby-recovery-card .credential { min-width: 0; }
+.lobby-recovery-card .credential strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1050px) { .lobby-recovery-card { grid-template-columns: 1fr 1fr; } }
 .credential { position: relative; min-width: 0; padding: 11px 40px 11px 11px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface-soft); }
 .credential span, .credential strong { display: block; }
 .credential span { color: var(--text-muted); font-size: 9px; }

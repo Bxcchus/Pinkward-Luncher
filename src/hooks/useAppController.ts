@@ -1117,15 +1117,20 @@ export function useAppController(): AppController {
         ) {
           dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'LOBBY_FULL' });
         }
-        if (owner && window.w3c) {
+        // Every companion probes the start condition. League itself only permits
+        // the actual lobby leader to start, which avoids deadlocking the duel if
+        // Pinkward's original owner and League's current leader drift apart.
+        if (window.w3c) {
           runOnce(`${matchId}:start`, async () => {
-            dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'STARTING' });
+            if (owner) dispatch({ type: 'SET_LIFECYCLE', lifecycle: 'STARTING' });
             const result = await window.w3c!.league.startDuelGame();
             if (!result.successful || result.status !== 'SUCCESS') {
-              dispatch({
-                type: 'SET_ERROR',
-                message: `League refused the 1v1 start (${result.diagnosticCode}).`,
-              });
+              if (result.diagnosticCode !== 'LCU_DUEL_NOT_LOBBY_LEADER') {
+                dispatch({
+                  type: 'SET_ERROR',
+                  message: `League refused the 1v1 start (${result.diagnosticCode}).`,
+                });
+              }
               throw new Error(result.diagnosticCode);
             }
             await api.duelStarted(matchId);

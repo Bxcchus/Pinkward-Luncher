@@ -194,14 +194,25 @@ export class TypedWebSocketClient {
 
   connect(accessToken: string): void {
     this.closedByUser = false;
+    if (
+      this.socket?.readyState === WebSocket.OPEN ||
+      this.socket?.readyState === WebSocket.CONNECTING
+    ) return;
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     const url = new URL(this.url);
     url.searchParams.set('access_token', accessToken);
-    this.socket = new WebSocket(url);
-    this.socket.addEventListener('open', () => {
+    const socket = new WebSocket(url);
+    this.socket = socket;
+    socket.addEventListener('open', () => {
+      if (this.socket !== socket) return;
       this.reconnectAttempt = 0;
       this.onStatus(true);
     });
-    this.socket.addEventListener('message', (message) => {
+    socket.addEventListener('message', (message) => {
+      if (this.socket !== socket) return;
       try {
         const event = JSON.parse(String(message.data)) as ServerEvent;
         if (event && typeof event.type === 'string' && 'payload' in event) this.onEvent(event);
@@ -209,11 +220,15 @@ export class TypedWebSocketClient {
         // Ignore malformed/untrusted messages; the connection stays available.
       }
     });
-    this.socket.addEventListener('close', () => {
+    socket.addEventListener('close', () => {
+      if (this.socket !== socket) return;
+      this.socket = null;
       this.onStatus(false);
       if (!this.closedByUser) this.scheduleReconnect(accessToken);
     });
-    this.socket.addEventListener('error', () => this.socket?.close());
+    socket.addEventListener('error', () => {
+      if (this.socket === socket) socket.close();
+    });
   }
 
   send(event: ClientEvent): boolean {
@@ -224,14 +239,22 @@ export class TypedWebSocketClient {
 
   close(): void {
     this.closedByUser = true;
-    if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
-    this.socket?.close();
+    if (this.reconnectTimer !== null) {
+      window.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    const socket = this.socket;
     this.socket = null;
+    socket?.close();
   }
 
   private scheduleReconnect(accessToken: string): void {
+    if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
     const delay = Math.min(1_000 * 2 ** this.reconnectAttempt, 15_000);
     this.reconnectAttempt += 1;
-    this.reconnectTimer = window.setTimeout(() => this.connect(accessToken), delay);
+    this.reconnectTimer = window.setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect(accessToken);
+    }, delay);
   }
 }

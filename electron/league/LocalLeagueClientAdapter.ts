@@ -549,6 +549,9 @@ export class LocalLeagueClientAdapter implements LeagueClientAdapter {
       if (!lobby || phase !== 'Lobby') {
         return commandResult('FAILED', 'LCU_CUSTOM_LOBBY_NOT_ACTIVE', mapGameflowState(phase), true);
       }
+      if (mode === 'DUEL' && !lobby.localMember.isLeader) {
+        return commandResult('FAILED', 'LCU_DUEL_NOT_LOBBY_LEADER', 'LOBBY', true);
+      }
       const members = await client.get<LobbyParticipant[]>('/lol-lobby/v2/lobby/members');
       const teamOneCount = lobby.gameConfig.customTeam100?.length ?? 0;
       const teamTwoCount = lobby.gameConfig.customTeam200?.length ?? 0;

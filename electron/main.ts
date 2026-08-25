@@ -43,7 +43,9 @@ interface UpdateSnapshot {
   message: string;
 }
 
+const UPDATE_CHECK_INTERVAL_MS = 5 * 60 * 1_000;
 let applicationUpdater: InstanceType<typeof electronUpdater.NsisUpdater> | null = null;
+let updateCheckTimer: NodeJS.Timeout | null = null;
 let updateSnapshot: UpdateSnapshot = {
   status: 'UNAVAILABLE',
   currentVersion: '0.0.0',
@@ -166,7 +168,12 @@ async function downloadApplicationUpdate(): Promise<UpdateSnapshot> {
 
 async function checkForApplicationUpdates(): Promise<UpdateSnapshot> {
   if (!applicationUpdater) return updateSnapshot;
-  if (updateSnapshot.status === 'CHECKING' || updateSnapshot.status === 'DOWNLOADING') {
+  if (
+    updateSnapshot.status === 'CHECKING' ||
+    updateSnapshot.status === 'AVAILABLE' ||
+    updateSnapshot.status === 'DOWNLOADING' ||
+    updateSnapshot.status === 'READY'
+  ) {
     return updateSnapshot;
   }
   try {
@@ -175,6 +182,20 @@ async function checkForApplicationUpdates(): Promise<UpdateSnapshot> {
     updateStatus('ERROR', 'Unable to retrieve the latest Pinkward release from GitHub.');
   }
   return updateSnapshot;
+}
+
+function startPeriodicUpdateChecks(): void {
+  if (!applicationUpdater || updateCheckTimer) return;
+  updateCheckTimer = setInterval(() => {
+    void checkForApplicationUpdates();
+  }, UPDATE_CHECK_INTERVAL_MS);
+  updateCheckTimer.unref();
+}
+
+function stopPeriodicUpdateChecks(): void {
+  if (!updateCheckTimer) return;
+  clearInterval(updateCheckTimer);
+  updateCheckTimer = null;
 }
 
 function installApplicationUpdate(): boolean {
@@ -328,12 +349,16 @@ app.whenReady().then(async () => {
   createWindow();
   leagueEventClient.start();
   void checkForApplicationUpdates();
+  startPeriodicUpdateChecks();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 
-app.on('before-quit', () => leagueEventClient.stop());
+app.on('before-quit', () => {
+  stopPeriodicUpdateChecks();
+  leagueEventClient.stop();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
